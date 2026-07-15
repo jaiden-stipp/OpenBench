@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const { createSupportBundle, runBackendSelfTest } = require('../electron/support.cjs');
 const here = path.dirname(fileURLToPath(import.meta.url));
-const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
 
 test('toolchain health runs a real simulation and Yosys elaboration', async () => {
   const result = await runBackendSelfTest(suiteRoot);

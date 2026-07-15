@@ -40,11 +40,17 @@ The staged copy is written to `app/.openbench-toolchain/oss-cad-suite`. Never pu
 
 ## Build the Windows installer
 
-Run this from Windows inside `app`:
+Run this from Windows inside `app` after configuring an Authenticode certificate:
 
 ```powershell
+$env:WIN_CSC_LINK = "C:\secure\openbench-signing-certificate.pfx"
+$env:WIN_CSC_KEY_PASSWORD = "<certificate password>"
 pnpm package:win
 ```
+
+The release command deliberately refuses to continue without signing credentials. It signs and verifies the unpacked application and NSIS installer, scans the entire unpacked application and installer with the locally installed Microsoft Defender engine, and writes `SHA256SUMS.txt`.
+
+For local packaging tests that must never be distributed, use `pnpm package:win:unsigned:dir`. The explicit `unsigned` name is intentional.
 
 Outputs:
 
@@ -62,8 +68,8 @@ Do not accept a package based only on whether its window opens. Run a genuine pr
 From `app` in PowerShell:
 
 ```powershell
-$capture = (Resolve-Path ..\..\outputs).Path + '\openbench-package-smoke.png'
-$env:OPENBENCH_TEST_PROJECT = (Resolve-Path ..\phase0).Path
+$capture = (Resolve-Path ..\outputs).Path + '\openbench-package-smoke.png'
+$env:OPENBENCH_TEST_PROJECT = (Resolve-Path ..\examples\phase0).Path
 $env:OPENBENCH_TEST_ACTION = 'simulation'
 $env:OPENBENCH_CAPTURE_PATH = $capture
 Start-Process -FilePath (Resolve-Path .\release\win-unpacked\OpenBench.exe).Path -ArgumentList @('--disable-gpu', '--no-sandbox')
@@ -86,11 +92,26 @@ Get-FileHash -Algorithm SHA256 .\release\OpenBench-*-Windows-x64.exe
 Build each package on its native operating system with that operating system's OSS CAD Suite:
 
 ```bash
+# Linux: install current ClamAV definitions and configure a release-signing key.
+export LINUX_GPG_PRIVATE_KEY="$(cat /secure/openbench-release-key.asc)"
+export LINUX_GPG_PASSPHRASE="<key passphrase>"
+export LINUX_GPG_KEY_ID="<optional key fingerprint>"
 pnpm package:linux
+
+# macOS: configure Developer ID and Apple notarization credentials.
+export CSC_LINK="/secure/openbench-developer-id.p12"
+export CSC_KEY_PASSWORD="<certificate password>"
+export APPLE_ID="<Apple developer account>"
+export APPLE_APP_SPECIFIC_PASSWORD="<app-specific password>"
+export APPLE_TEAM_ID="<team ID>"
 pnpm package:mac
 ```
 
-Linux produces an AppImage and tarball. macOS produces DMG and ZIP artifacts. The repository workflow at `.github/workflows/native-packages.yml` is the preferred repeatable path once the repository is on GitHub.
+Linux produces a Debian package and tarball. The native workflow installs the `.deb`, runs a genuine bundled-backend simulation through the installed application, scans the unpacked application and both artifacts with ClamAV, writes SHA-256 checksums, signs the checksum manifest with an isolated temporary GPG keyring, and verifies that signature. The tarball is the no-FUSE fallback for non-Debian distributions. Linux does not have one universal publisher-reputation service equivalent to SmartScreen, so users must receive the public signing key through a trusted channel. For local testing only, use `pnpm package:linux:unsigned:dir`.
+
+macOS produces DMG and ZIP artifacts with hardened runtime enabled. The release command requires Developer ID signing and notarization credentials, then verifies the application with `codesign` and Gatekeeper (`spctl`), validates the stapled notarization ticket on the DMG, and writes SHA-256 checksums. For local testing only, use `pnpm package:mac:unsigned:dir`. Apple requires Developer ID signing, hardened runtime, and notarization for normal direct distribution; see [Apple's notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+
+The repository workflow at `.github/workflows/native-packages.yml` is the preferred repeatable path once its platform signing secrets are configured.
 
 Do not call a platform validated until its packaged executable completes a genuine bundled-backend simulation and produces a new nonempty VCD. macOS also needs signing/notarization before normal public distribution.
 
@@ -100,8 +121,18 @@ Do not call a platform validated until its packaged executable completes a genui
 2. Confirm the correct native OSS CAD Suite is staged.
 3. Run the platform packaging command.
 4. Smoke-test the unpacked packaged executable against a real HDL project.
-5. Record the artifact size and SHA-256 checksum.
+5. Confirm the platform signature/notarization checks, malware scan, and generated SHA-256 checksum.
 6. Copy the installer into `outputs/` only when it is the version you intend to hand off.
 7. Update the relevant status document and release notes.
 
-Preview installers are currently unsigned, so Windows reputation warnings are expected.
+## Windows Defender and SmartScreen
+
+Authenticode signing and a clean Defender scan materially reduce warnings, but no build system can guarantee acceptance by every future Defender definition or by SmartScreen's online reputation service. Microsoft documents that SmartScreen considers both publisher and per-file reputation, so even a newly signed binary can initially show a prompt. Bundled compiler binaries make release-by-release scanning especially important. See Microsoft's [SmartScreen reputation guidance](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation) and [Windows code-signing options](https://learn.microsoft.com/windows/apps/package-and-deploy/code-signing-options).
+
+For public releases:
+
+1. use an Authenticode certificate whose subject matches the configured publisher name;
+2. store `WINDOWS_CSC_LINK` and `WINDOWS_CSC_KEY_PASSWORD` as GitHub Actions secrets;
+3. let the native-package workflow reject unsigned or Defender-detected artifacts;
+4. test SmartScreen on a clean Windows machine;
+5. submit any false positive through the [Microsoft Security Intelligence file submission portal](https://www.microsoft.com/en-us/wdsi/filesubmission) before publishing the installer.

@@ -13,7 +13,7 @@ function resolveToolchainRoot({
     env.OPENBENCH_TOOLCHAIN && path.resolve(env.OPENBENCH_TOOLCHAIN),
     env.RTLBENCH_TOOLCHAIN && path.resolve(env.RTLBENCH_TOOLCHAIN),
     resourcesPath && path.join(resourcesPath, 'oss-cad-suite'),
-    path.resolve(appDirectory, '..', '..', 'toolchain', 'oss-cad-suite'),
+    path.resolve(appDirectory, '..', '..', '.toolchain', 'oss-cad-suite'),
   ].filter(Boolean);
   const root = candidates.find((candidate) => fs.existsSync(path.join(candidate, 'bin')));
   if (root) return root;

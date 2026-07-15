@@ -13,7 +13,15 @@ import {
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 test('builds connected schematic data from real Yosys JSON', async () => {
-  const jsonPath = path.resolve(here, '..', '..', 'phase0', 'results', 'rtlbench_smoke.json');
+  const jsonPath = path.resolve(
+    here,
+    '..',
+    '..',
+    'examples',
+    'phase0',
+    'results',
+    'rtlbench_smoke.json',
+  );
   const netlist = JSON.parse(await fsp.readFile(jsonPath, 'utf8'));
   const top = findTopModule(netlist);
   assert.equal(top, 'rtlbench_smoke');

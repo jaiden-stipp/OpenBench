@@ -11,8 +11,8 @@ const { runIcarusSimulation } = require('../electron/simulator.cjs');
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 test('real Icarus simulation produces a parseable VCD', async () => {
-  const projectRoot = path.resolve(here, '..', '..', 'phase0');
-  const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+  const projectRoot = path.resolve(here, '..', '..', 'examples', 'phase0');
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   let output = '';
   const result = await runIcarusSimulation({
     projectRoot,

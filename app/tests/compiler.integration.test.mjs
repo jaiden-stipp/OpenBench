@@ -9,8 +9,8 @@ const { startIcarusCompile, startVerilatorLint } = require('../electron/compiler
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 test('portable Icarus compiles the real Phase 0 HDL project', async () => {
-  const projectRoot = path.resolve(here, '..', '..', 'phase0');
-  const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+  const projectRoot = path.resolve(here, '..', '..', 'examples', 'phase0');
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   let output = '';
   const run = startIcarusCompile({
     projectRoot,
@@ -25,8 +25,8 @@ test('portable Icarus compiles the real Phase 0 HDL project', async () => {
 });
 
 test('portable Verilator lints the real Phase 0 HDL project', async () => {
-  const projectRoot = path.resolve(here, '..', '..', 'phase0');
-  const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+  const projectRoot = path.resolve(here, '..', '..', 'examples', 'phase0');
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   let output = '';
   const run = startVerilatorLint({
     projectRoot,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Editor, { loader, type OnMount } from '@monaco-editor/react';
 import * as localMonaco from 'monaco-editor';
 import type { editor } from 'monaco-editor';
+import { parseDiagnostic } from './diagnostics.js';
 import WaveformPanel from './WaveformPanel';
 import type { VcdData } from './vcdParser.js';
 import type { VcdSignal } from './vcdParser.js';
@@ -25,6 +26,9 @@ import { analyzeProjectSources, explainWaveform } from './projectInsights.js';
 import OutputConsole from './components/OutputConsole';
 import ProjectExplorer from './components/ProjectExplorer';
 import RunToolbar from './components/RunToolbar';
+import AboutDialog from './components/AboutDialog';
+import ProjectContextMenu from './components/ProjectContextMenu';
+import { FileTabs, ViewTabs } from './components/WorkspaceTabs';
 import {
   conceptForLine,
   configureSystemVerilog,
@@ -1022,6 +1026,30 @@ export default function App() {
     }
   };
 
+  const closeFileTab = async (file: OpenFile) => {
+    if (file.content !== file.savedContent) {
+      await window.rtlbench.writeFile(file.path, file.content);
+      await window.rtlbench.clearRecoveryDraft(file.path);
+    }
+
+    const remaining = openFiles.filter((item) => item.path !== file.path);
+    setOpenFiles(remaining);
+    if (activeFilePath === file.path) {
+      setActiveFilePath(remaining.at(-1)?.path || null);
+    }
+  };
+
+  const duplicateProjectFile = async (node: ProjectNode) => {
+    try {
+      const copy = await window.rtlbench.duplicateFile(node.path);
+      await refreshProject();
+      setContextMenu(null);
+      await openPath(copy);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const menuActions: Record<string, () => void> = {
     newProject: () => void beginNewProject(),
     openProject: () => void openProject(),
@@ -1173,68 +1201,23 @@ export default function App() {
             className={`editor-panel panel ${activeView === 'source' && openFiles.length ? 'with-file-tabs' : ''}`}
             style={{ gridArea: 'editor' }}
           >
-            <div className="tabbar view-tabs">
-              <button
-                className={activeView === 'source' ? 'active' : ''}
-                onClick={() => setActiveView('source')}
-              >
-                Source
-              </button>
-              <button
-                className={activeView === 'waveform' ? 'active' : ''}
-                onClick={() => setActiveView('waveform')}
-              >
-                Waveform{waveform ? ` · ${waveform.signals.length}` : ''}
-              </button>
-              <button
-                className={activeView === 'schematic' ? 'active' : ''}
-                onClick={() => setActiveView('schematic')}
-              >
-                RTL Schematic{rtlTop ? ` · ${rtlTop}` : ''}
-              </button>
-              <span className={`lint-state ${lintStatus}`}>
-                {lintStatus === 'checking'
-                  ? 'Checking…'
-                  : lintStatus === 'issues'
-                    ? 'Lint issues'
-                    : lintStatus === 'clean'
-                      ? 'Lint clean'
-                      : ''}
-              </span>
-            </div>
+            <ViewTabs
+              activeView={activeView}
+              waveformSignalCount={waveform?.signals.length ?? null}
+              rtlTop={rtlTop}
+              lintStatus={lintStatus}
+              onSelectView={setActiveView}
+            />
             {activeView === 'source' && openFiles.length > 0 && (
-              <div className="file-tabs">
-                {openFiles.map((file) => (
-                  <button
-                    key={file.path}
-                    className={file.path === activeFilePath ? 'active' : ''}
-                    title={file.path}
-                    onClick={() => {
-                      setActiveFilePath(file.path);
-                      setActiveView('source');
-                    }}
-                  >
-                    <span>{file.path}</span>
-                    {file.content !== file.savedContent && <i>●</i>}
-                    <b
-                      aria-label={`Close ${file.path}`}
-                      onClick={async (event) => {
-                        event.stopPropagation();
-                        if (file.content !== file.savedContent) {
-                          await window.rtlbench.writeFile(file.path, file.content);
-                          await window.rtlbench.clearRecoveryDraft(file.path);
-                        }
-                        const remaining = openFiles.filter((item) => item.path !== file.path);
-                        setOpenFiles(remaining);
-                        if (activeFilePath === file.path)
-                          setActiveFilePath(remaining.at(-1)?.path || null);
-                      }}
-                    >
-                      ×
-                    </b>
-                  </button>
-                ))}
-              </div>
+              <FileTabs
+                files={openFiles}
+                activeFilePath={activeFilePath}
+                onSelectFile={(path) => {
+                  setActiveFilePath(path);
+                  setActiveView('source');
+                }}
+                onCloseFile={(file) => void closeFileTab(file)}
+              />
             )}
             {activeView === 'source' ? (
               openFile ? (
@@ -1372,40 +1355,7 @@ export default function App() {
           onComposeEmail={(kind) => void composeFeedbackEmail(kind)}
         />
       )}
-      {showAbout && (
-        <div className="modal-backdrop">
-          <section className="project-dialog compact about-dialog" role="dialog" aria-modal="true">
-            <div className="settings-heading">
-              <div>
-                <small>ABOUT</small>
-                <h2>OpenBench Preview</h2>
-              </div>
-              <button aria-label="Close" onClick={() => setShowAbout(false)}>
-                ×
-              </button>
-            </div>
-            <p>
-              A zero-setup Verilog/SystemVerilog workbench built around genuine Icarus, Verilator,
-              and Yosys backends.
-            </p>
-            <div className="about-points">
-              <span>Real simulation and VCD waveforms</span>
-              <span>Yosys JSON RTL schematics</span>
-              <span>Beginner-oriented explanations</span>
-            </div>
-            <p className="license-notice">
-              Copyright © 2026 Jaiden Stipp and OpenBench contributors. OpenBench is free software
-              under the GNU GPL v3.0 and comes with absolutely no warranty. Bundled third-party
-              tools retain their own licenses.
-            </p>
-            <div className="dialog-actions">
-              <button className="primary" onClick={() => setShowAbout(false)}>
-                Done
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
       {showGuidance && project && (
         <GuidanceCenter
           project={project}
@@ -1494,92 +1444,32 @@ export default function App() {
         />
       )}
       {contextMenu && (
-        <div
-          className="project-context-menu"
-          style={{
-            left: Math.min(contextMenu.x, window.innerWidth - 210),
-            top: Math.min(contextMenu.y, window.innerHeight - 260),
+        <ProjectContextMenu
+          {...contextMenu}
+          onNewFile={(node) => {
+            setPrompt({ kind: 'new-file', node, initialValue: 'new_module.sv' });
+            setContextMenu(null);
           }}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          {contextMenu.node.kind === 'directory' && (
-            <>
-              <button
-                onClick={() => {
-                  setPrompt({
-                    kind: 'new-file',
-                    node: contextMenu.node,
-                    initialValue: 'new_module.sv',
-                  });
-                  setContextMenu(null);
-                }}
-              >
-                New File Here…
-              </button>
-              <button
-                onClick={() => {
-                  setPrompt({
-                    kind: 'new-folder',
-                    node: contextMenu.node,
-                    initialValue: 'subfolder',
-                  });
-                  setContextMenu(null);
-                }}
-              >
-                New Folder Here…
-              </button>
-            </>
-          )}
-          <button
-            onClick={() => {
-              setPrompt({
-                kind: 'rename',
-                node: contextMenu.node,
-                initialValue: contextMenu.node.name,
-              });
-              setContextMenu(null);
-            }}
-          >
-            Rename…
-          </button>
-          {contextMenu.node.kind === 'file' && (
-            <button
-              onClick={async () => {
-                try {
-                  const copy = await window.rtlbench.duplicateFile(contextMenu.node.path);
-                  await refreshProject();
-                  setContextMenu(null);
-                  await openPath(copy);
-                } catch (error) {
-                  setStatus(error instanceof Error ? error.message : String(error));
-                }
-              }}
-            >
-              Duplicate
-            </button>
-          )}
-          <button
-            onClick={() => {
-              void navigator.clipboard.writeText(contextMenu.node.path);
-              setStatus(`Copied ${contextMenu.node.path}`);
-              setContextMenu(null);
-            }}
-          >
-            Copy Relative Path
-          </button>
-          <button
-            onClick={() => {
-              void window.rtlbench.revealFile(contextMenu.node.path);
-              setContextMenu(null);
-            }}
-          >
-            Show in File Explorer
-          </button>
-          <div className="menu-separator" />
-          <button className="danger" onClick={() => void removeProjectEntry(contextMenu.node)}>
-            Move to Recycle Bin…
-          </button>
-        </div>
+          onNewFolder={(node) => {
+            setPrompt({ kind: 'new-folder', node, initialValue: 'subfolder' });
+            setContextMenu(null);
+          }}
+          onRename={(node) => {
+            setPrompt({ kind: 'rename', node, initialValue: node.name });
+            setContextMenu(null);
+          }}
+          onDuplicate={(node) => void duplicateProjectFile(node)}
+          onCopyPath={(node) => {
+            void navigator.clipboard.writeText(node.path);
+            setStatus(`Copied ${node.path}`);
+            setContextMenu(null);
+          }}
+          onReveal={(node) => {
+            void window.rtlbench.revealFile(node.path);
+            setContextMenu(null);
+          }}
+          onRemove={(node) => void removeProjectEntry(node)}
+        />
       )}
     </div>
   );

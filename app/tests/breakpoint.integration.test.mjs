@@ -22,8 +22,8 @@ test('rejects injected breakpoint hierarchy or values', () => {
 });
 
 test('Icarus evaluates a compiled waveform condition inside the real simulation', async () => {
-  const projectRoot = path.resolve(here, '..', '..', 'phase0');
-  const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+  const projectRoot = path.resolve(here, '..', '..', 'examples', 'phase0');
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   let output = '';
   const result = await runIcarusSimulation({
     projectRoot,

@@ -2,7 +2,11 @@ const fsp = require('node:fs/promises');
 const path = require('node:path');
 
 const appRoot = path.resolve(__dirname, '..');
-const sourceRoot = path.resolve(process.env.OPENBENCH_TOOLCHAIN_SOURCE || process.env.RTLBENCH_TOOLCHAIN_SOURCE || path.join(appRoot, '..', '.toolchain', 'oss-cad-suite'));
+const sourceRoot = path.resolve(
+  process.env.OPENBENCH_TOOLCHAIN_SOURCE ||
+    process.env.RTLBENCH_TOOLCHAIN_SOURCE ||
+    path.join(appRoot, '..', '.toolchain', 'oss-cad-suite'),
+);
 const targetRoot = path.join(appRoot, '.openbench-toolchain', 'oss-cad-suite');
 
 async function copyFile(relativePath) {
@@ -13,24 +17,56 @@ async function copyFile(relativePath) {
 }
 
 async function copyDirectory(relativePath) {
-  await fsp.cp(path.join(sourceRoot, relativePath), path.join(targetRoot, relativePath), { recursive: true });
+  await fsp.cp(path.join(sourceRoot, relativePath), path.join(targetRoot, relativePath), {
+    recursive: true,
+  });
 }
 
 async function stage() {
   const executableSuffix = process.platform === 'win32' ? '.exe' : '';
-  const binaries = [`iverilog${executableSuffix}`, `vvp${executableSuffix}`, `verilator_bin${executableSuffix}`, `yosys${executableSuffix}`, `yosys-abc${executableSuffix}`];
+  const binaries = [
+    `iverilog${executableSuffix}`,
+    `vvp${executableSuffix}`,
+    `verilator_bin${executableSuffix}`,
+    `yosys${executableSuffix}`,
+    `yosys-abc${executableSuffix}`,
+  ];
   if (process.platform === 'win32') binaries.push('libvvp-1.dll');
   await fsp.rm(targetRoot, { recursive: true, force: true });
   await Promise.all(binaries.map((name) => copyFile(path.join('bin', name))));
   await Promise.all(['lib/ivl', 'share/verilator', 'share/yosys'].map(copyDirectory));
-  if (process.platform !== 'win32') await Promise.all(['iverilog', 'ivl', 'ivlpp', 'vhdlpp', 'vvp', 'verilator_bin', 'yosys', 'yosys-abc'].map((name) => copyFile(path.join('libexec', name))));
+  if (process.platform !== 'win32')
+    await Promise.all(
+      ['iverilog', 'ivl', 'ivlpp', 'vhdlpp', 'vvp', 'verilator_bin', 'yosys', 'yosys-abc'].map(
+        (name) => copyFile(path.join('libexec', name)),
+      ),
+    );
   for (const name of ['VERSION', 'README']) {
-    try { await copyFile(name); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    try {
+      await copyFile(name);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
   }
-  try { await copyDirectory('license'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try {
+    await copyDirectory('license');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
   const libraryEntries = await fsp.readdir(path.join(sourceRoot, 'lib'), { withFileTypes: true });
-  const runtimeLibrary = process.platform === 'win32' ? /\.dll$/i : process.platform === 'darwin' ? /\.dylib(?:\.\d+)*$/i : /\.so(?:\.\d+)*$/i;
-  await Promise.all(libraryEntries.filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && runtimeLibrary.test(entry.name)).map((entry) => copyFile(path.join('lib', entry.name))));
+  const runtimeLibrary =
+    process.platform === 'win32'
+      ? /\.dll$/i
+      : process.platform === 'darwin'
+        ? /\.dylib(?:\.\d+)*$/i
+        : /\.so(?:\.\d+)*$/i;
+  await Promise.all(
+    libraryEntries
+      .filter(
+        (entry) => (entry.isFile() || entry.isSymbolicLink()) && runtimeLibrary.test(entry.name),
+      )
+      .map((entry) => copyFile(path.join('lib', entry.name))),
+  );
   const files = [];
   async function walk(directory) {
     for (const entry of await fsp.readdir(directory, { withFileTypes: true })) {
@@ -41,7 +77,12 @@ async function stage() {
   }
   await walk(targetRoot);
   const bytes = files.reduce((sum, size) => sum + size, 0);
-  process.stdout.write(`Staged ${files.length} backend files (${(bytes / 1024 / 1024).toFixed(1)} MiB) at ${targetRoot}\n`);
+  process.stdout.write(
+    `Staged ${files.length} backend files (${(bytes / 1024 / 1024).toFixed(1)} MiB) at ${targetRoot}\n`,
+  );
 }
 
-stage().catch((error) => { console.error(error); process.exitCode = 1; });
+stage().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

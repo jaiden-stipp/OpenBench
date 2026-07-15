@@ -15,14 +15,16 @@
     "electron": "electron .",
     "build": "tsc --noEmit && vite build",
     "test": "node --test tests/*.test.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,js}\" \"electron/**/*.cjs\" \"tests/**/*.mjs\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,js}\" \"electron/**/*.cjs\" \"tests/**/*.mjs\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js}\" \"electron/**/*.cjs\" \"scripts/**/*.cjs\" \"tests/**/*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js}\" \"electron/**/*.cjs\" \"scripts/**/*.cjs\" \"tests/**/*.mjs\"",
     "toolchain:stage": "node scripts/stage-toolchain.cjs",
-    "package:win:dir": "pnpm build && pnpm toolchain:stage && electron-builder --win --dir",
-    "package:win": "pnpm build && pnpm toolchain:stage && electron-builder --win nsis",
-    "package:linux:dir": "pnpm build && pnpm toolchain:stage && electron-builder --linux --dir",
-    "package:linux": "pnpm build && pnpm toolchain:stage && electron-builder --linux AppImage tar.gz",
-    "package:mac": "pnpm build && pnpm toolchain:stage && electron-builder --mac dmg zip"
+    "package:win:unsigned:dir": "pnpm build && pnpm toolchain:stage && electron-builder --win --dir -c.forceCodeSigning=false",
+    "package:win:dir": "node scripts/require-windows-signing.cjs && pnpm build && pnpm toolchain:stage && electron-builder --win --dir -c.forceCodeSigning=true",
+    "package:win": "node scripts/require-windows-signing.cjs && pnpm build && pnpm toolchain:stage && electron-builder --win nsis -c.forceCodeSigning=true && node scripts/verify-windows-release.cjs",
+    "package:linux:unsigned:dir": "pnpm build && pnpm toolchain:stage && electron-builder --linux --dir",
+    "package:linux": "node scripts/require-release-signing.cjs linux && pnpm build && pnpm toolchain:stage && electron-builder --linux deb tar.gz && node scripts/verify-linux-release.cjs",
+    "package:mac:unsigned:dir": "pnpm build && pnpm toolchain:stage && electron-builder --mac --dir -c.mac.identity=null -c.mac.hardenedRuntime=false",
+    "package:mac": "node scripts/require-release-signing.cjs mac && pnpm build && pnpm toolchain:stage && electron-builder --mac dmg zip -c.forceCodeSigning=true && node scripts/verify-macos-release.cjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -68,15 +70,23 @@
       ],
       "artifactName": "OpenBench-${version}-Windows-${arch}.${ext}",
       "executableName": "OpenBench",
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true,
+      "signtoolOptions": {
+        "publisherName": "Jaiden Stipp"
+      }
     },
     "linux": {
       "target": [
-        "AppImage",
+        "deb",
         "tar.gz"
       ],
       "artifactName": "OpenBench-${version}-Linux-${arch}.${ext}",
       "executableName": "openbench",
+      "maintainer": "Jaiden Stipp <jaidenstipp@gmail.com>",
+      "vendor": "OpenBench",
+      "synopsis": "Low-friction Verilog and SystemVerilog workbench",
+      "description": "OpenBench is a desktop workbench for editing, simulating, inspecting waveforms, and exploring synthesized RTL designs.",
       "category": "Development",
       "icon": "build/icon.png"
     },
@@ -87,7 +97,9 @@
       ],
       "artifactName": "OpenBench-${version}-macOS-${arch}.${ext}",
       "category": "public.app-category.developer-tools",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "notarize": true
     },
     "nsis": {
       "oneClick": false,

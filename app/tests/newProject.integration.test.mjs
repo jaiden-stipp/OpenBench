@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const { createProject } = require('../electron/projectManager.cjs');
 const { runIcarusSimulation } = require('../electron/simulator.cjs');
 const here = path.dirname(fileURLToPath(import.meta.url));
-const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
 
 test('New Project starter runs out of the box with the portable Icarus backend', async () => {
   const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-first-run-'));

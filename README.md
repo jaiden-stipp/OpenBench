@@ -13,7 +13,7 @@
   <a href="../../releases/latest"><strong>Download the latest release</strong></a>
 </p>
 
-> OpenBench is a preview. Windows x64 and Linux x86_64 packages have completed real bundled-backend validation. Preview packages are not code-signed.
+> OpenBench is a preview. Release workflows reject packages that fail platform trust checks or genuine bundled-backend tests.
 
 ## Download and install
 
@@ -22,7 +22,8 @@ Download the package for your operating system from the repository's [Releases p
 | Platform | Package | Status |
 | --- | --- | --- |
 | Windows 10/11 x64 | `OpenBench-*-Windows-x64.exe` | Validated with bundled Icarus, Verilator, and Yosys |
-| Linux x86_64 | `OpenBench-*-Linux-x86_64.AppImage` | Validated with a genuine packaged simulation |
+| Ubuntu/Debian x86_64 | `OpenBench-*-Linux-x86_64.deb` | Native install and genuine simulation are checked by the release workflow |
+| Other Linux x86_64 | `OpenBench-*-Linux-x86_64.tar.gz` | Portable fallback without FUSE |
 | macOS | DMG/ZIP planned | Packaging is configured but not yet validated on macOS hardware |
 
 ### Windows
@@ -35,12 +36,13 @@ Windows may show a reputation warning because preview installers are currently u
 
 ### Linux
 
-Download the AppImage, make it executable, and run it:
+On Ubuntu, Debian, Linux Mint, Pop!_OS, and related distributions, download the `.deb` and open it with the system software installer. You can also install it from a terminal:
 
 ```bash
-chmod +x OpenBench-*-Linux-x86_64.AppImage
-./OpenBench-*-Linux-x86_64.AppImage
+sudo apt install ./OpenBench-*-Linux-x86_64.deb
 ```
+
+Other distributions can use the `.tar.gz` fallback by extracting it and launching `openbench`. Neither package requires FUSE.
 
 The distributed packages include their native HDL toolchain. You do not need to install ModelSim, Icarus Verilog, Verilator, Yosys, or configure `PATH` separately.
 
@@ -145,9 +147,9 @@ pnpm test
 pnpm start
 ```
 
-The current Windows suite contains 43 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, and a 50,000-timestamp waveform benchmark.
+The current Windows suite contains 49 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, learning projects, and a 50,000-timestamp waveform benchmark.
 
-See the [application development notes](app/README.md) and [architecture guide](docs/ARCHITECTURE.md) for implementation details. Maintainers can use the [packaging guide](PACKAGING.md) for native-toolchain staging, installer creation, packaged-backend smoke testing, and the release checklist.
+See the [application development notes](app/README.md) and [architecture guide](docs/ARCHITECTURE.md) for implementation details. Maintainers can use the [packaging guide](PACKAGING.md) and [release handoff](docs/RELEASING.md) for native-toolchain staging, signing secrets, installer creation, packaged-backend smoke testing, and the release checklist.
 
 ## Repository layout
 

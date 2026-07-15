@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const { ensureExampleProject, LESSONS } = require('../electron/exampleProject.cjs');
 const { runIcarusSimulation } = require('../electron/simulator.cjs');
 const here = path.dirname(fileURLToPath(import.meta.url));
-const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
 
 test('every built-in lesson produces a genuine waveform', async () => {
   const base = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-lessons-'));

@@ -19,17 +19,28 @@ jobs:
         include:
           - os: windows-2022
             suite: windows-x64
-            package_args: --win nsis --x64
+            package_args: --win nsis --x64 -c.forceCodeSigning=true
             artifact: OpenBench-Windows-x64
           - os: ubuntu-22.04
             suite: linux-x64
-            package_args: --linux AppImage tar.gz
+            package_args: --linux deb tar.gz
             artifact: OpenBench-Linux-x64
           - os: macos-14
             suite: darwin-arm64
-            package_args: --mac dmg zip --arm64
+            package_args: --mac dmg zip --arm64 -c.forceCodeSigning=true
             artifact: OpenBench-macOS-arm64
     runs-on: ${{ matrix.os }}
+    env:
+      WIN_CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+      WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+      LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+      LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+      LINUX_GPG_KEY_ID: ${{ secrets.LINUX_GPG_KEY_ID }}
+      CSC_LINK: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK || '' }}
+      CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || '' }}
+      APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+      APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
     defaults:
       run:
         working-directory: app
@@ -52,34 +63,72 @@ jobs:
           mkdir -p ../.toolchain
           tar -xzf "${archive}" -C ../.toolchain
       - run: pnpm install --frozen-lockfile
+      - name: Install and update ClamAV
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clamav
+          sudo systemctl stop clamav-freshclam.service || true
+          sudo freshclam
       - run: pnpm build
       - name: Stage bundled native backends
         env:
           OPENBENCH_TOOLCHAIN_SOURCE: ${{ github.workspace }}/.toolchain/oss-cad-suite
         run: pnpm toolchain:stage
+      - name: Require Authenticode credentials for Windows
+        if: runner.os == 'Windows'
+        run: node scripts/require-windows-signing.cjs
+      - name: Require Linux release-signing credentials
+        if: runner.os == 'Linux'
+        run: node scripts/require-release-signing.cjs linux
+      - name: Require macOS signing and notarization credentials
+        if: runner.os == 'macOS'
+        run: node scripts/require-release-signing.cjs mac
       - name: Run native real-backend regression
         run: pnpm test
       - name: Build unpacked native app
         run: pnpm exec electron-builder ${{ matrix.package_args }} --dir
-      - name: Exercise packaged Linux app and bundled Icarus
+      - name: Build distributable artifacts
+        run: pnpm exec electron-builder ${{ matrix.package_args }}
+      - name: Install Debian package
         if: runner.os == 'Linux'
+        shell: bash
+        run: sudo apt-get install --yes ./release/*.deb
+      - name: Exercise installed Debian package and bundled Icarus
+        if: runner.os == 'Linux'
+        shell: bash
         env:
           OPENBENCH_TEST_PROJECT: ${{ github.workspace }}/examples/phase0
           OPENBENCH_TEST_ACTION: simulation
-        run: xvfb-run -a timeout 90s release/linux-unpacked/openbench --disable-gpu --no-sandbox
-      - name: Verify packaged Linux waveform output
+        run: |
+          installed_app="$(command -v openbench || true)"
+          if [[ -z "$installed_app" ]]; then
+            installed_app="/opt/OpenBench/openbench"
+          fi
+          test -x "$installed_app"
+          xvfb-run -a timeout 90s "$installed_app" --disable-gpu --no-sandbox
+      - name: Verify installed Debian package waveform output
         if: runner.os == 'Linux'
         shell: bash
         run: find "${{ github.workspace }}/examples/phase0/.openbench-runs" -name '*.vcd' -type f -print -quit | grep -q .
-      - name: Build distributable artifacts
-        run: pnpm exec electron-builder ${{ matrix.package_args }}
+      - name: Verify Authenticode signatures and scan with Defender
+        if: runner.os == 'Windows'
+        run: node scripts/verify-windows-release.cjs
+      - name: Scan and sign Linux release metadata
+        if: runner.os == 'Linux'
+        run: node scripts/verify-linux-release.cjs
+      - name: Verify Developer ID, Gatekeeper, and notarization
+        if: runner.os == 'macOS'
+        run: node scripts/verify-macos-release.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           if-no-files-found: error
           path: |
-            app/release/*.AppImage
+            app/release/*.deb
             app/release/*.exe
             app/release/*.tar.gz
             app/release/*.dmg
             app/release/*.zip
+            app/release/SHA256SUMS.txt
+            app/release/SHA256SUMS.txt.asc

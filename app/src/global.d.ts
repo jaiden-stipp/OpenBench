@@ -122,9 +122,7 @@ interface Window {
     editAction(action: 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'selectAll'): Promise<void>;
     runCompile(): Promise<{ code: number }>;
     runInlineLint(): Promise<{ code: number; output: string; skipped: boolean }>;
-    runSimulation(
-      breakpoints?: WaveBreakpoint[],
-    ): Promise<{
+    runSimulation(breakpoints?: WaveBreakpoint[]): Promise<{
       code: number;
       vcdPath: string;
       breakpointHit?: { condition: string; time: number } | null;

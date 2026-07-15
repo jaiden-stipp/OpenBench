@@ -40,6 +40,7 @@ jobs:
           mkdir -p ../.toolchain
           tar -xzf "${archive}" -C ../.toolchain
       - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
       - run: pnpm build
       - run: pnpm test
         env:

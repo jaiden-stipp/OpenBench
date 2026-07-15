@@ -60,15 +60,17 @@ Packaging requires a native OSS CAD Suite extraction. Put it in `../.toolchain/o
 ```bash
 pnpm toolchain:stage
 pnpm package:win       # Windows
-pnpm package:linux     # Linux
-pnpm package:mac       # macOS; still requires native validation/signing
+pnpm package:linux     # Linux; requires GPG credentials and ClamAV
+pnpm package:mac       # macOS; requires Developer ID and notarization credentials
 ```
+
+Release commands refuse missing platform trust credentials. Explicit `package:*:unsigned:dir` commands exist only for local packaging tests; never distribute those outputs. See the repository [packaging and release-security guide](../PACKAGING.md).
 
 ## Current verification
 
-- 43 tests pass on Windows, including real Icarus, Verilator, Yosys, session recovery, and editable-example integration.
-- Linux x86_64 has completed a genuine packaged-app Icarus/VCD run.
+- 49 tests pass on Windows, including real Icarus, Verilator, Yosys, session recovery, learning projects, project health, and editable-example integration.
+- Linux x86_64 has completed a genuine packaged-runtime Icarus/VCD run. The native release workflow installs the `.deb` and repeats that test before upload.
 - Windows x64 has completed genuine packaged Icarus/VCD and Yosys/mux-rendering runs.
 - The VCD benchmark covers 50,000 timestamps.
 
-Preview installers are not code-signed. macOS signing/notarization and a real macOS packaged-backend run remain outstanding.
+The signed release gates are configured, but signed Windows/macOS packages and the macOS packaged-backend run remain unvalidated until real signing credentials are supplied on their native runners.

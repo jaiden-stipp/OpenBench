@@ -237,12 +237,10 @@ async function importFiles(root, sourcePaths) {
     name: path.basename(canonicalRoot),
     files: await discoverHdlFiles(canonicalRoot),
   };
-  const candidates = sourcePaths
-    .filter(isHdl)
-    .map((source) => ({
-      source,
-      destination: resolveInside(canonicalRoot, path.join(canonicalRoot, path.basename(source))),
-    }));
+  const candidates = sourcePaths.filter(isHdl).map((source) => ({
+    source,
+    destination: resolveInside(canonicalRoot, path.join(canonicalRoot, path.basename(source))),
+  }));
   const duplicateNames = candidates
     .map((item) => path.basename(item.destination).toLowerCase())
     .filter((name, index, values) => values.indexOf(name) !== index);

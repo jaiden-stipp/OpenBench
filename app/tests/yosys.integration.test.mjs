@@ -11,8 +11,8 @@ const { runYosysElaboration } = require('../electron/yosys.cjs');
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 test('real Yosys elaboration produces source-attributed JSON', async () => {
-  const projectRoot = path.resolve(here, '..', '..', 'phase0');
-  const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+  const projectRoot = path.resolve(here, '..', '..', 'examples', 'phase0');
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   let output = '';
   const result = await runYosysElaboration({
     projectRoot,
@@ -32,7 +32,7 @@ test('real Yosys elaboration produces source-attributed JSON', async () => {
 
 test('real Yosys honors configured include paths', async () => {
   const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtlbench-yosys-include-'));
-  const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   try {
     await fsp.mkdir(path.join(projectRoot, 'include files'));
     await fsp.writeFile(path.join(projectRoot, 'include files', 'width.vh'), '`define WIDTH 4\n');

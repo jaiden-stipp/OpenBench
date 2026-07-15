@@ -13,13 +13,13 @@ const { runIcarusSimulation } = require('../electron/simulator.cjs');
 const { generateStarterTestbench } = require('../electron/testbenchGenerator.cjs');
 const { runYosysElaboration } = require('../electron/yosys.cjs');
 const here = path.dirname(fileURLToPath(import.meta.url));
-const suiteRoot = path.resolve(here, '..', '..', 'toolchain', 'oss-cad-suite');
+const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
 
 test('beginner FSM goes from design-only Yosys metadata to generated testbench and real VCD', async () => {
   const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtlbench-beginner-'));
   try {
     await fsp.copyFile(
-      path.resolve(here, '..', '..', 'beginner-fsm', 'traffic_light.sv'),
+      path.resolve(here, '..', '..', 'examples', 'fixtures', 'beginner-fsm', 'traffic_light.sv'),
       path.join(projectRoot, 'traffic_light.sv'),
     );
     const elaborated = await runYosysElaboration({
@@ -81,7 +81,15 @@ test('a real unsupported coverage construct is identified at the source line', a
   const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtlbench-beginner-unsupported-'));
   try {
     await fsp.copyFile(
-      path.resolve(here, '..', '..', 'beginner-unsupported', 'unsupported.sv'),
+      path.resolve(
+        here,
+        '..',
+        '..',
+        'examples',
+        'fixtures',
+        'beginner-unsupported',
+        'unsupported.sv',
+      ),
       path.join(projectRoot, 'unsupported.sv'),
     );
     const translator = createErrorTranslator({ backend: 'iverilog', projectRoot });
