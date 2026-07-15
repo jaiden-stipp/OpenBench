@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest a focused improvement to OpenBench
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: friction
+    attributes:
+      label: What task is difficult today?
+      description: Describe the real workflow or beginner confusion this would improve.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request reduces a concrete step or point of confusion rather than aiming for commercial-EDA feature parity.
+

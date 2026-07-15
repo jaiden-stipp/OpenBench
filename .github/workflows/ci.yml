@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OSS_CAD_TAG: 2026-07-15
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: work/openbench
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: work/openbench/pnpm-lock.yaml
+      - name: Download native OSS CAD Suite
+        shell: bash
+        run: |
+          archive_date="${OSS_CAD_TAG//-/}"
+          archive="oss-cad-suite-linux-x64-${archive_date}.tgz"
+          curl --fail --location --retry 3 "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_TAG}/${archive}" --output "${archive}"
+          mkdir -p ../toolchain
+          tar -xzf "${archive}" -C ../toolchain
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+        env:
+          OPENBENCH_TOOLCHAIN_SOURCE: ${{ github.workspace }}/work/toolchain/oss-cad-suite

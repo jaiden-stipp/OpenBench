@@ -1,0 +1,183 @@
+{
+  "creator": "Yosys 0.67+31 (git sha1 22c15a7ec, Release, GNU /usr/bin/x86_64-w64-mingw32-g++ 13.2.1)",
+  "modules": {
+    "rtlbench_smoke": {
+      "attributes": {
+        "top": "00000000000000000000000000000001",
+        "src": "rtlbench_smoke.sv:1.1-13.10"
+      },
+      "ports": {
+        "clk": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "rst_n": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "value": {
+          "direction": "input",
+          "bits": [ 4, 5, 6, 7 ]
+        },
+        "total": {
+          "direction": "output",
+          "bits": [ 8, 9, 10, 11 ]
+        }
+      },
+      "cells": {
+        "$add$rtlbench_smoke.sv:11$3": {
+          "hide_name": 1,
+          "type": "$add",
+          "parameters": {
+            "A_SIGNED": "00000000000000000000000000000000",
+            "A_WIDTH": "00000000000000000000000000000100",
+            "B_SIGNED": "00000000000000000000000000000000",
+            "B_WIDTH": "00000000000000000000000000000100",
+            "Y_WIDTH": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "src": "rtlbench_smoke.sv:11.22-11.35"
+          },
+          "port_directions": {
+            "A": "input",
+            "B": "input",
+            "Y": "output"
+          },
+          "connections": {
+            "A": [ 8, 9, 10, 11 ],
+            "B": [ 4, 5, 6, 7 ],
+            "Y": [ 12, 13, 14, 15 ]
+          }
+        },
+        "$auto$proc_dff.cc:220:proc_dff$4": {
+          "hide_name": 1,
+          "type": "$not",
+          "parameters": {
+            "A_SIGNED": "00000000000000000000000000000000",
+            "A_WIDTH": "00000000000000000000000000000001",
+            "Y_WIDTH": "00000000000000000000000000000001"
+          },
+          "attributes": {
+          },
+          "port_directions": {
+            "A": "input",
+            "Y": "output"
+          },
+          "connections": {
+            "A": [ 3 ],
+            "Y": [ 16 ]
+          }
+        },
+        "$logic_not$rtlbench_smoke.sv:8$2": {
+          "hide_name": 1,
+          "type": "$logic_not",
+          "parameters": {
+            "A_SIGNED": "00000000000000000000000000000000",
+            "A_WIDTH": "00000000000000000000000000000001",
+            "Y_WIDTH": "00000000000000000000000000000001"
+          },
+          "attributes": {
+            "src": "rtlbench_smoke.sv:8.13-8.19"
+          },
+          "port_directions": {
+            "A": "input",
+            "Y": "output"
+          },
+          "connections": {
+            "A": [ 3 ],
+            "Y": [ 17 ]
+          }
+        },
+        "$procdff$8": {
+          "hide_name": 1,
+          "type": "$adff",
+          "parameters": {
+            "ARST_POLARITY": "00000000000000000000000000000000",
+            "ARST_VALUE": "0000",
+            "CLK_POLARITY": "1",
+            "WIDTH": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "always_ff": "00000000000000000000000000000001",
+            "src": "rtlbench_smoke.sv:7.5-12.8"
+          },
+          "port_directions": {
+            "ARST": "input",
+            "CLK": "input",
+            "D": "input",
+            "Q": "output"
+          },
+          "connections": {
+            "ARST": [ 3 ],
+            "CLK": [ 2 ],
+            "D": [ 12, 13, 14, 15 ],
+            "Q": [ 8, 9, 10, 11 ]
+          }
+        }
+      },
+      "netnames": {
+        "$0\\total[3:0]": {
+          "hide_name": 1,
+          "bits": [ 12, 13, 14, 15 ],
+          "attributes": {
+            "src": "rtlbench_smoke.sv:7.5-12.8"
+          }
+        },
+        "$add$rtlbench_smoke.sv:11$3_Y": {
+          "hide_name": 1,
+          "bits": [ 12, 13, 14, 15 ],
+          "attributes": {
+            "src": "rtlbench_smoke.sv:11.22-11.35"
+          }
+        },
+        "$auto$rtlil.cc:3267:Not$5": {
+          "hide_name": 1,
+          "bits": [ 16 ],
+          "attributes": {
+          }
+        },
+        "$auto$rtlil.cc:3271:ReduceOr$7": {
+          "hide_name": 1,
+          "bits": [ 16 ],
+          "attributes": {
+          }
+        },
+        "$logic_not$rtlbench_smoke.sv:8$2_Y": {
+          "hide_name": 1,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "rtlbench_smoke.sv:8.13-8.19"
+          }
+        },
+        "clk": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "rtlbench_smoke.sv:2.24-2.27"
+          }
+        },
+        "rst_n": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "rtlbench_smoke.sv:3.24-3.29"
+          }
+        },
+        "total": {
+          "hide_name": 0,
+          "bits": [ 8, 9, 10, 11 ],
+          "attributes": {
+            "src": "rtlbench_smoke.sv:5.24-5.29"
+          }
+        },
+        "value": {
+          "hide_name": 0,
+          "bits": [ 4, 5, 6, 7 ],
+          "attributes": {
+            "src": "rtlbench_smoke.sv:4.24-4.29"
+          }
+        }
+      }
+    }
+  }
+}

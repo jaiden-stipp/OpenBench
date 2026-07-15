@@ -1,0 +1,39 @@
+# Dependencies and package-manager caches
+node_modules/
+.pnpm-store/
+.agents/
+.codex/
+
+# Build and package output
+work/openbench/dist/
+work/openbench/release/
+outputs/
+coverage/
+
+# Native OSS CAD Suite downloads and staged bundles
+work/toolchain/
+work/openbench/.openbench-toolchain/
+work/openbench/.rtlbench-toolchain/
+
+# Runtime and visual-validation state
+**/.rtlbench-runs/
+**/.openbench-runs/
+work/openbench/.electron-validation/
+work/openbench/tmp/
+work/openbench/phase*.png
+work/phase0/results/rtlbench_smoke_sim*
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
