@@ -1,0 +1,98 @@
+{
+  "name": "openbench",
+  "version": "0.1.0",
+  "description": "A low-friction desktop workbench for learning and debugging Verilog/SystemVerilog designs.",
+  "author": { "name": "Jaiden Stipp", "email": "jaidenstipp@gmail.com" },
+  "license": "GPL-3.0-only",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "start:validation": "electron . --disable-gpu --no-sandbox",
+    "dev": "vite --host 127.0.0.1",
+    "electron": "electron .",
+    "build": "tsc --noEmit && vite build",
+    "test": "node --test tests/*.test.mjs",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js}\" \"electron/**/*.cjs\" \"tests/**/*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js}\" \"electron/**/*.cjs\" \"tests/**/*.mjs\"",
+    "toolchain:stage": "node scripts/stage-toolchain.cjs",
+    "package:win:dir": "pnpm build && pnpm toolchain:stage && electron-builder --win --dir",
+    "package:win": "pnpm build && pnpm toolchain:stage && electron-builder --win nsis",
+    "package:linux:dir": "pnpm build && pnpm toolchain:stage && electron-builder --linux --dir",
+    "package:linux": "pnpm build && pnpm toolchain:stage && electron-builder --linux AppImage tar.gz",
+    "package:mac": "pnpm build && pnpm toolchain:stage && electron-builder --mac dmg zip"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "elkjs": "^0.11.1",
+    "monaco-editor": "^0.55.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "prettier": "^3.6.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4"
+  },
+  "build": {
+    "appId": "dev.openbench.desktop",
+    "productName": "OpenBench",
+    "asar": true,
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "LICENSE"
+    ],
+    "extraResources": [
+      {
+        "from": ".openbench-toolchain/oss-cad-suite",
+        "to": "oss-cad-suite"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "OpenBench-${version}-Windows-${arch}.${ext}",
+      "executableName": "OpenBench",
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "artifactName": "OpenBench-${version}-Linux-${arch}.${ext}",
+      "executableName": "openbench",
+      "category": "Development",
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "OpenBench-${version}-macOS-${arch}.${ext}",
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  }
+}

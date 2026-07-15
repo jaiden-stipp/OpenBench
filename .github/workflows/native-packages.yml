@@ -32,7 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        working-directory: work/openbench
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -42,20 +42,20 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: work/openbench/pnpm-lock.yaml
+          cache-dependency-path: app/pnpm-lock.yaml
       - name: Download official native OSS CAD Suite
         shell: bash
         run: |
           archive_date="${OSS_CAD_TAG//-/}"
           archive="oss-cad-suite-${{ matrix.suite }}-${archive_date}.tgz"
           curl --fail --location --retry 3 "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_TAG}/${archive}" --output "${archive}"
-          mkdir -p ../toolchain
-          tar -xzf "${archive}" -C ../toolchain
+          mkdir -p ../.toolchain
+          tar -xzf "${archive}" -C ../.toolchain
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Stage bundled native backends
         env:
-          OPENBENCH_TOOLCHAIN_SOURCE: ${{ github.workspace }}/work/toolchain/oss-cad-suite
+          OPENBENCH_TOOLCHAIN_SOURCE: ${{ github.workspace }}/.toolchain/oss-cad-suite
         run: pnpm toolchain:stage
       - name: Run native real-backend regression
         run: pnpm test
@@ -64,13 +64,13 @@ jobs:
       - name: Exercise packaged Linux app and bundled Icarus
         if: runner.os == 'Linux'
         env:
-          OPENBENCH_TEST_PROJECT: ${{ github.workspace }}/work/phase0
+          OPENBENCH_TEST_PROJECT: ${{ github.workspace }}/examples/phase0
           OPENBENCH_TEST_ACTION: simulation
         run: xvfb-run -a timeout 90s release/linux-unpacked/openbench --disable-gpu --no-sandbox
       - name: Verify packaged Linux waveform output
         if: runner.os == 'Linux'
         shell: bash
-        run: find "${{ github.workspace }}/work/phase0/.openbench-runs" -name '*.vcd' -type f -print -quit | grep -q .
+        run: find "${{ github.workspace }}/examples/phase0/.openbench-runs" -name '*.vcd' -type f -print -quit | grep -q .
       - name: Build distributable artifacts
         run: pnpm exec electron-builder ${{ matrix.package_args }}
       - uses: actions/upload-artifact@v4
@@ -78,8 +78,8 @@ jobs:
           name: ${{ matrix.artifact }}
           if-no-files-found: error
           path: |
-            work/openbench/release/*.AppImage
-            work/openbench/release/*.exe
-            work/openbench/release/*.tar.gz
-            work/openbench/release/*.dmg
-            work/openbench/release/*.zip
+            app/release/*.AppImage
+            app/release/*.exe
+            app/release/*.tar.gz
+            app/release/*.dmg
+            app/release/*.zip

@@ -1,6 +1,6 @@
 # OpenBench support
 
-For usage questions, first check the [README](README.md), in-app Beginner Guide, and [application development notes](work/openbench/README.md).
+For usage questions, first check the [README](README.md), in-app Beginner Guide, and [application development notes](app/README.md).
 
 - Use GitHub Issues for reproducible bugs and feature proposals.
 - Email [jaidenstipp@gmail.com](mailto:jaidenstipp@gmail.com) for general feedback or help that should not be public.

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="work/openbench/src/assets/openbench-logo.png" width="180" alt="OpenBench logo">
+  <img src="app/src/assets/openbench-logo.png" width="180" alt="OpenBench logo">
 </p>
 
 <h1 align="center">OpenBench</h1>
@@ -68,6 +68,12 @@ Learning Verilog should not begin with an afternoon of simulator installation, e
 - Generate a simple editable starter testbench from module metadata.
 - Recompile and refresh automatically with optional watch mode.
 - Return to the same open tabs, editor position, and waveform layout after restarting the app.
+- Diagnose common beginner problems through Project Health, including missing tops, duplicate or referenced modules, absent testbenches, non-toggling clocks, flat signals, and X/Z values.
+- Measure waveforms with two cursors, frequency/delta readouts, named bookmarks, edge navigation, changed-signal filtering, and comparisons with recent persisted runs.
+- Browse the elaborated module hierarchy and focus a module directly in the RTL schematic.
+- Build simple timed input stimulus visually and keep the generated SystemVerilog fully editable.
+- Run a genuine bundled-toolchain self-test and explore editable counter, FSM, PWM, and ALU lessons.
+- Export a privacy-reviewed diagnostic bundle; HDL source is excluded by default.
 
 ## Projects and supported HDL
 
@@ -132,7 +138,7 @@ Requirements:
 
 ```bash
 git clone <repository-url>
-cd OpenBench/work/openbench
+cd OpenBench/app
 pnpm install --frozen-lockfile
 pnpm build
 pnpm test
@@ -141,13 +147,14 @@ pnpm start
 
 The current Windows suite contains 43 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, and a 50,000-timestamp waveform benchmark.
 
-See the [application development notes](work/openbench/README.md) for architecture and workflow details. Maintainers can use the [packaging guide](PACKAGING.md) for native-toolchain staging, installer creation, packaged-backend smoke testing, and the release checklist.
+See the [application development notes](app/README.md) and [architecture guide](docs/ARCHITECTURE.md) for implementation details. Maintainers can use the [packaging guide](PACKAGING.md) for native-toolchain staging, installer creation, packaged-backend smoke testing, and the release checklist.
 
 ## Repository layout
 
 ```text
-work/openbench/   Electron/React application, tests, and packaging scripts
-work/phase0/     Genuine HDL and Yosys JSON integration fixtures
+app/              Electron/React application, tests, and packaging scripts
+examples/         Genuine HDL projects used by integration tests and smoke tests
+docs/             Contributor-facing architecture and design documentation
 .github/         Issue templates, CI, and native package workflows
 ```
 

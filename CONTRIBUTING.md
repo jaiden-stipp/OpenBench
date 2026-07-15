@@ -18,14 +18,15 @@ Requirements:
 - A platform-native [YosysHQ OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build) extraction for genuine backend tests
 
 ```bash
-cd work/openbench
+cd app
 pnpm install --frozen-lockfile
 pnpm build
 pnpm test
+pnpm format:check
 pnpm start
 ```
 
-Put the native suite at `work/toolchain/oss-cad-suite`, or set `OPENBENCH_TOOLCHAIN_SOURCE` to its absolute path.
+Put the native suite at `.toolchain/oss-cad-suite`, or set `OPENBENCH_TOOLCHAIN_SOURCE` to its absolute path.
 
 ## Pull requests
 
@@ -33,7 +34,7 @@ Put the native suite at `work/toolchain/oss-cad-suite`, or set `OPENBENCH_TOOLCH
 2. Preserve raw simulator/Yosys output when adding friendlier explanations.
 3. Do not replace genuine backend results with mocked waveforms or netlists.
 4. Add or update tests for behavior changes.
-5. Run `pnpm build` and `pnpm test` from `work/openbench`.
+5. Run `pnpm format:check`, `pnpm build`, and `pnpm test` from `app`.
 6. Update user documentation when workflows or supported behavior change.
 
 The core product goal is to reduce the distance between having an HDL idea and seeing it work. Commercial-EDA complexity that does not improve that beginner workflow may be out of scope.

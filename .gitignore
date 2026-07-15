@@ -5,23 +5,23 @@ node_modules/
 .codex/
 
 # Build and package output
-work/openbench/dist/
-work/openbench/release/
+app/dist/
+app/release/
 outputs/
 coverage/
 
 # Native OSS CAD Suite downloads and staged bundles
-work/toolchain/
-work/openbench/.openbench-toolchain/
-work/openbench/.rtlbench-toolchain/
+.toolchain/
+app/.openbench-toolchain/
+app/.rtlbench-toolchain/
 
 # Runtime and visual-validation state
 **/.rtlbench-runs/
 **/.openbench-runs/
-work/openbench/.electron-validation/
-work/openbench/tmp/
-work/openbench/phase*.png
-work/phase0/results/rtlbench_smoke_sim*
+app/.electron-validation/
+app/tmp/
+app/phase*.png
+examples/phase0/results/rtlbench_smoke_sim*
 *.log
 
 # Local configuration and secrets

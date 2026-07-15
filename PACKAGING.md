@@ -4,7 +4,7 @@ Packaging is a release step, not part of the normal edit/test loop. Most changes
 
 ## Day-to-day development
 
-From `work/openbench`:
+From `app`:
 
 ```powershell
 pnpm install --frozen-lockfile
@@ -18,7 +18,7 @@ pnpm build
 pnpm test
 ```
 
-`pnpm build` runs the TypeScript check and creates the production renderer under `work/openbench/dist`. `pnpm test` includes genuine Icarus, Verilator, Yosys, VCD, project-management, and persistence tests; it is not a mocked UI-only suite.
+`pnpm build` runs the TypeScript check and creates the production renderer under `app/dist`. `pnpm test` includes genuine Icarus, Verilator, Yosys, VCD, project-management, and persistence tests; it is not a mocked UI-only suite.
 
 ## Native toolchain
 
@@ -27,7 +27,7 @@ OpenBench packages a platform-native YosysHQ OSS CAD Suite so users do not need 
 Place the extracted suite at:
 
 ```text
-work/toolchain/oss-cad-suite/
+.toolchain/oss-cad-suite/
 ```
 
 Alternatively, set `OPENBENCH_TOOLCHAIN_SOURCE` to the absolute extraction path. Stage the suite before packaging:
@@ -36,11 +36,11 @@ Alternatively, set `OPENBENCH_TOOLCHAIN_SOURCE` to the absolute extraction path.
 pnpm toolchain:stage
 ```
 
-The staged copy is written to `work/openbench/.openbench-toolchain/oss-cad-suite`. Never put a Windows suite in a Linux package or a Linux suite in a Windows package.
+The staged copy is written to `app/.openbench-toolchain/oss-cad-suite`. Never put a Windows suite in a Linux package or a Linux suite in a Windows package.
 
 ## Build the Windows installer
 
-Run this from Windows inside `work/openbench`:
+Run this from Windows inside `app`:
 
 ```powershell
 pnpm package:win
@@ -49,8 +49,8 @@ pnpm package:win
 Outputs:
 
 ```text
-work/openbench/release/OpenBench-<version>-Windows-x64.exe
-work/openbench/release/win-unpacked/OpenBench.exe
+app/release/OpenBench-<version>-Windows-x64.exe
+app/release/win-unpacked/OpenBench.exe
 ```
 
 The unpacked executable is useful for validation because it runs the same packaged application without installing it.
@@ -59,7 +59,7 @@ The unpacked executable is useful for validation because it runs the same packag
 
 Do not accept a package based only on whether its window opens. Run a genuine project and confirm a new VCD was created.
 
-From `work/openbench` in PowerShell:
+From `app` in PowerShell:
 
 ```powershell
 $capture = (Resolve-Path ..\..\outputs).Path + '\openbench-package-smoke.png'
@@ -72,7 +72,7 @@ Start-Process -FilePath (Resolve-Path .\release\win-unpacked\OpenBench.exe).Path
 Then verify:
 
 - the capture exists and shows the waveform viewer;
-- a new nonempty VCD exists under `work/phase0/.openbench-runs/`;
+- a new nonempty VCD exists under `examples/phase0/.openbench-runs/`;
 - the console command paths point into `release/win-unpacked/resources/oss-cad-suite`.
 
 Generate a checksum before distributing the installer:
