@@ -111,7 +111,7 @@ Linux produces a Debian package and tarball. The native workflow installs the `.
 
 macOS produces DMG and ZIP artifacts with hardened runtime enabled. The release command requires Developer ID signing and notarization credentials, then verifies the application with `codesign` and Gatekeeper (`spctl`), validates the stapled notarization ticket on the DMG, and writes SHA-256 checksums. For local testing only, use `pnpm package:mac:unsigned:dir`. Apple requires Developer ID signing, hardened runtime, and notarization for normal direct distribution; see [Apple's notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 
-The repository workflow at `.github/workflows/native-packages.yml` is the preferred repeatable path once its platform signing secrets are configured.
+The repository workflow at `../.github/workflows/native-packages.yml` is the preferred repeatable path once its platform signing secrets are configured.
 
 Do not call a platform validated until its packaged executable completes a genuine bundled-backend simulation and produces a new nonempty VCD. macOS also needs signing/notarization before normal public distribution.
 

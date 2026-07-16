@@ -58,4 +58,4 @@ pnpm package:linux:unsigned:dir
 pnpm package:mac:unsigned:dir
 ```
 
-See [PACKAGING.md](../PACKAGING.md) for platform-specific release validation and troubleshooting.
+See [PACKAGING.md](PACKAGING.md) for platform-specific release validation and troubleshooting.

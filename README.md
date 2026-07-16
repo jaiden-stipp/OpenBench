@@ -144,6 +144,8 @@ Bug reports, beginner-workflow feedback, documentation improvements, backend err
 
 Please keep the core product goal in mind: reduce the distance between having an HDL idea and seeing it work. Features that add commercial-EDA complexity without improving that workflow may be out of scope.
 
+Read the [contribution guide](.github/CONTRIBUTING.md) before opening a pull request. Participation is governed by the [Code of Conduct](.github/CODE_OF_CONDUCT.md), and sensitive vulnerabilities should follow the [security policy](.github/SECURITY.md).
+
 ## Build from source
 
 Requirements:
@@ -161,17 +163,17 @@ pnpm test
 pnpm start
 ```
 
-The current Windows suite contains 49 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, learning projects, and a 50,000-timestamp waveform benchmark.
+The current test suite contains 56 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, learning projects, and a 50,000-timestamp waveform benchmark.
 
-See the [application development notes](app/README.md) and [architecture guide](docs/ARCHITECTURE.md) for implementation details. Maintainers can use the [packaging guide](PACKAGING.md) and [release handoff](docs/RELEASING.md) for native-toolchain staging, signing secrets, installer creation, packaged-backend smoke testing, and the release checklist.
+See the [application development notes](app/README.md) and [architecture guide](docs/ARCHITECTURE.md) for implementation details. Maintainers can use the [packaging guide](docs/PACKAGING.md) and [release handoff](docs/RELEASING.md) for native-toolchain staging, signing secrets, installer creation, packaged-backend smoke testing, and the release checklist.
 
 ## Repository layout
 
 ```text
 app/              Electron/React application, tests, and packaging scripts
 examples/         Genuine HDL projects used by integration tests and smoke tests
-docs/             Contributor-facing architecture and design documentation
-.github/         Issue templates, CI, and native package workflows
+docs/             Architecture, packaging, and release documentation
+.github/          Community health files, issue templates, CI, and release workflows
 ```
 
 ## License

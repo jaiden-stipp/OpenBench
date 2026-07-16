@@ -64,7 +64,7 @@ pnpm package:linux     # Linux; requires GPG credentials and ClamAV
 pnpm package:mac       # macOS; requires Developer ID and notarization credentials
 ```
 
-Release commands refuse missing platform trust credentials. Explicit `package:*:unsigned:dir` commands exist only for local packaging tests; never distribute those outputs. See the repository [packaging and release-security guide](../PACKAGING.md).
+Release commands refuse missing platform trust credentials. Explicit `package:*:unsigned:dir` commands exist only for local packaging tests; never distribute those outputs. See the repository [packaging and release-security guide](../docs/PACKAGING.md).
 
 ## Current verification
 
