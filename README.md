@@ -15,6 +15,16 @@
 
 > OpenBench is a preview. Release workflows reject packages that fail platform trust checks or genuine bundled-backend tests.
 
+## OpenBench in action
+
+<p align="center">
+  <img src="docs/assets/openbench-waveform.png" width="1200" alt="OpenBench displaying a simulated Verilog project with its interactive waveform viewer and readable simulation output">
+</p>
+
+<p align="center">
+  <em>A genuine Icarus Verilog simulation displayed in OpenBench's interactive waveform viewer.</em>
+</p>
+
 ## Download and install
 
 Download the package for your operating system from the repository's [Releases page](../../releases/latest).
