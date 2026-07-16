@@ -7,7 +7,7 @@ type WorkerMessage = {
   name?: string;
   data?: VcdData;
   error?: string;
-  purpose?: 'history';
+  purpose?: 'history' | 'open';
   id?: string;
   createdAt?: number;
 };
@@ -24,13 +24,44 @@ type WaveformWorkerOptions = {
 };
 
 export function useWaveformWorker(options: WaveformWorkerOptions) {
+  const {
+    pendingBreakpointHitRef,
+    pendingRunSourcesRef,
+    setActiveView,
+    setSimulationRuns,
+    setStatus,
+    setWaveform,
+    setWaveformName,
+    waveformWorkerRef,
+  } = options;
   useEffect(() => {
     const worker = new Worker(new URL('../vcd.worker.ts', import.meta.url), { type: 'module' });
-    options.waveformWorkerRef.current = worker;
+    waveformWorkerRef.current = worker;
     worker.onmessage = (event: MessageEvent<WorkerMessage>) =>
-      handleWorkerMessage(event.data, options);
-    return () => worker.terminate();
-  }, []);
+      handleWorkerMessage(event.data, {
+        pendingBreakpointHitRef,
+        pendingRunSourcesRef,
+        setActiveView,
+        setSimulationRuns,
+        setStatus,
+        setWaveform,
+        setWaveformName,
+        waveformWorkerRef,
+      });
+    return () => {
+      worker.terminate();
+      if (waveformWorkerRef.current === worker) waveformWorkerRef.current = null;
+    };
+  }, [
+    pendingBreakpointHitRef,
+    pendingRunSourcesRef,
+    setActiveView,
+    setSimulationRuns,
+    setStatus,
+    setWaveform,
+    setWaveformName,
+    waveformWorkerRef,
+  ]);
 }
 
 function handleWorkerMessage(message: WorkerMessage, options: WaveformWorkerOptions) {
@@ -44,6 +75,14 @@ function handleWorkerMessage(message: WorkerMessage, options: WaveformWorkerOpti
   }
   if (message.purpose === 'history') {
     appendSavedRun(message, options.setSimulationRuns);
+    return;
+  }
+  if (message.purpose === 'open') {
+    options.setWaveform(message.data);
+    options.setWaveformName(message.name ?? 'simulation.vcd');
+    appendSavedRun(message, options.setSimulationRuns);
+    options.setActiveView('waveform');
+    options.setStatus(`Restored ${message.data.signals.length} waveform signals`);
     return;
   }
 

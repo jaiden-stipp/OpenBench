@@ -63,3 +63,28 @@ export function sampleVisibleChanges(
   }
   return sampled;
 }
+
+const TIME_UNITS = [
+  ['s', 1],
+  ['ms', 1e-3],
+  ['us', 1e-6],
+  ['ns', 1e-9],
+  ['ps', 1e-12],
+  ['fs', 1e-15],
+] as const;
+
+export function formatSimulationTime(ticks: number, timescale: string): string {
+  const match = timescale.match(/([\d.]+)\s*(s|ms|us|ns|ps|fs)/i);
+  if (!match) return `${Math.round(ticks)} ticks`;
+  const base = TIME_UNITS.find(([unit]) => unit === match[2].toLowerCase());
+  if (!base) return `${Math.round(ticks)} ticks`;
+  if (ticks === 0) return `0 ${base[0]}`;
+  const seconds = ticks * Number(match[1]) * base[1];
+  const absolute = Math.abs(seconds);
+  const display =
+    TIME_UNITS.find(([, multiplier]) => absolute >= multiplier) ||
+    TIME_UNITS[TIME_UNITS.length - 1];
+  const value = seconds / display[1];
+  const precision = Math.abs(value) >= 100 ? 1 : Math.abs(value) >= 10 ? 3 : 4;
+  return `${Number(value.toFixed(precision))} ${display[0]}`;
+}

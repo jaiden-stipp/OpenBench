@@ -92,10 +92,17 @@ const INFO_PATTERNS = [
   },
   {
     id: 'yosys-register',
-    match: /Creating register for signal\s+[`']?([^`']+)/i,
+    match: /Creating register for signal\s+[`']?([^\s`']+)/i,
     title: 'Yosys inferred a hardware register',
     explain: (match) =>
-      `${match[1].trim()} becomes stored state and is drawn with a register symbol.`,
+      `${friendlyYosysName(match[1])} becomes stored state and is drawn with a register symbol.`,
+  },
+  {
+    id: 'yosys-memory-registers',
+    match: /Replacing memory\s+[`']?([^\s`']+)\s+with list of registers/i,
+    title: 'Yosys expanded a memory into registers',
+    explain: (match) =>
+      `${friendlyYosysName(match[1])} is shown as individual registers in this RTL view. This is normal for a small memory.`,
   },
   {
     id: 'yosys-write-json',
@@ -105,6 +112,19 @@ const INFO_PATTERNS = [
       'OpenBench will render the resulting Yosys JSON; HDL text is not hand-parsed for the schematic.',
   },
 ];
+
+function friendlyYosysName(value) {
+  const clean = String(value || '')
+    .replace(/^[\\/]+/, '')
+    .replace(/[,'`]$/, '')
+    .replaceAll('\\', '.');
+  return (
+    clean
+      .split('.')
+      .filter((part) => part && !part.startsWith('$'))
+      .join('.') || 'This signal'
+  );
+}
 
 function sourceLocation(line, projectRoot) {
   const match = line.match(

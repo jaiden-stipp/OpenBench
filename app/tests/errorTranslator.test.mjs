@@ -36,6 +36,23 @@ test('translates useful simulator and Yosys milestones without hiding raw output
   );
   assert.equal(register.id, 'yosys-register');
   assert.match(register.title, /hardware register/);
+  assert.equal(
+    register.explanation,
+    'top.state becomes stored state and is drawn with a register symbol.',
+  );
+  const noisyRegister = translateErrorLine(
+    "Creating register for signal `\\simple_cpu.program_counter' using process `\\simple_cpu.$proc$C:/Users/student/simple_cpu.sv:61$1'.",
+    'yosys',
+    path.resolve('project'),
+  );
+  assert.doesNotMatch(noisyRegister.explanation, /\$proc|C:\//);
+  const memory = translateErrorLine(
+    'Warning: Replacing memory \\registers with list of registers. See rtl/register_file.sv:18',
+    'yosys',
+    path.resolve('project'),
+  );
+  assert.equal(memory.id, 'yosys-memory-registers');
+  assert.match(memory.explanation, /normal for a small memory/);
 });
 
 test('translates an Icarus syntax error and keeps its exact source location', () => {

@@ -22,6 +22,7 @@ cd app
 pnpm install --frozen-lockfile
 pnpm build
 pnpm test
+pnpm lint
 pnpm format:check
 pnpm start
 ```
@@ -34,7 +35,7 @@ Put the native suite at `.toolchain/oss-cad-suite`, or set `OPENBENCH_TOOLCHAIN_
 2. Preserve raw simulator/Yosys output when adding friendlier explanations.
 3. Do not replace genuine backend results with mocked waveforms or netlists.
 4. Add or update tests for behavior changes.
-5. Run `pnpm format:check`, `pnpm build`, and `pnpm test` from `app`.
+5. Run `pnpm format:check`, `pnpm lint`, `pnpm build`, and `pnpm test` from `app`.
 6. Update user documentation when workflows or supported behavior change.
 
 ## Code organization

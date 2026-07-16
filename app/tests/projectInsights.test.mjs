@@ -19,6 +19,40 @@ test('suggests design and simulation tops from beginner HDL', () => {
   assert.deepEqual(result.missingModules, []);
 });
 
+test('keeps the DUT as design top even when the testbench instantiates it', () => {
+  const result = analyzeProjectSources([
+    { path: 'rtl/leaf.sv', content: 'module leaf(input logic a); endmodule' },
+    {
+      path: 'rtl/cpu.sv',
+      content: 'module cpu(input logic clk); leaf execute(.a(clk)); endmodule',
+    },
+    {
+      path: 'tb/cpu_tb.sv',
+      content:
+        'module cpu_tb; logic clk; cpu dut(.clk(clk)); initial begin $dumpfile("cpu.vcd"); $dumpvars; wait(clk); $display("done"); $finish; end endmodule',
+    },
+  ]);
+  assert.equal(result.suggestedTop, 'cpu');
+  assert.equal(result.suggestedSimulationTop, 'cpu_tb');
+  assert.deepEqual(result.missingModules, []);
+});
+
+test('does not mistake language constructs or system tasks for modules', () => {
+  const result = analyzeProjectSources([
+    {
+      path: 'cpu.sv',
+      content:
+        'module cpu(input logic clk); always_comb begin case (clk) 1: if (clk) begin end else begin end endcase end endmodule',
+    },
+    {
+      path: 'cpu_tb.sv',
+      content:
+        'module cpu_tb; cpu dut(); initial begin $dumpfile("x.vcd"); $dumpvars; wait(1); $display("ok"); $fatal; end endmodule',
+    },
+  ]);
+  assert.deepEqual(result.missingModules, []);
+});
+
 test('explains flat unknown waveforms without inventing results', () => {
   const result = explainWaveform({
     endTime: 10,

@@ -43,18 +43,20 @@ export function useEditorIntegration(options: EditorIntegrationOptions) {
 }
 
 function useEditorWindowEvents(options: EditorIntegrationOptions) {
+  const { editorRef, setImportSelection, setNewProjectParent, setSourceConcept, updateOpenFile } =
+    options;
   useEffect(() => {
     const insertText = (event: Event) =>
-      options.updateOpenFile((file) => ({
+      updateOpenFile((file) => ({
         ...file,
         content: `${file.content}${(event as CustomEvent<string>).detail}`,
       }));
     const showConcept = (event: Event) => {
-      const instance = options.editorRef.current;
+      const instance = editorRef.current;
       if (!instance) return;
       const detail = (event as CustomEvent<{ line: number; column: number }>).detail;
       instance.setPosition({ lineNumber: detail.line, column: detail.column });
-      options.setSourceConcept(
+      setSourceConcept(
         conceptForLine(instance.getModel()?.getLineContent(detail.line) || '') ||
           defaultSourceConcept(),
       );
@@ -62,9 +64,9 @@ function useEditorWindowEvents(options: EditorIntegrationOptions) {
       void instance.getAction('editor.action.showHover')?.run();
     };
     const showNewProject = (event: Event) =>
-      options.setNewProjectParent((event as CustomEvent<string>).detail);
+      setNewProjectParent((event as CustomEvent<string>).detail);
     const showImport = (event: Event) =>
-      options.setImportSelection((event as CustomEvent<ProjectSelection>).detail);
+      setImportSelection((event as CustomEvent<ProjectSelection>).detail);
     window.addEventListener('rtlbench:insert-editor-text', insertText);
     window.addEventListener('rtlbench:show-concept', showConcept);
     window.addEventListener('openbench:show-new-project', showNewProject);
@@ -75,7 +77,7 @@ function useEditorWindowEvents(options: EditorIntegrationOptions) {
       window.removeEventListener('openbench:show-new-project', showNewProject);
       window.removeEventListener('openbench:show-import', showImport);
     };
-  }, [options.updateOpenFile]);
+  }, [editorRef, setImportSelection, setNewProjectParent, setSourceConcept, updateOpenFile]);
 }
 
 export function useDismissContextMenu(
@@ -89,5 +91,5 @@ export function useDismissContextMenu(
       window.removeEventListener('pointerdown', close);
       window.removeEventListener('blur', close);
     };
-  }, []);
+  }, [setContextMenu]);
 }

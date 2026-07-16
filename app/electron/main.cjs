@@ -30,6 +30,7 @@ const { ensureExampleProject } = require('./exampleProject.cjs');
 const { createSupportBundle, runBackendSelfTest } = require('./support.cjs');
 const { createWorkspaceRegistry } = require('./workspaceController.cjs');
 const { registerWaveformIpc } = require('./ipc/waveform.cjs');
+const hdlStructure = import('../shared/hdlStructure.js');
 
 const HDL_EXTENSIONS = new Set(['.v', '.sv', '.vh', '.svh']);
 const TEST_PROJECT = process.env.OPENBENCH_TEST_PROJECT || process.env.RTLBENCH_TEST_PROJECT;
@@ -473,42 +474,22 @@ ipcMain.handle('project:selectFolder', async () => {
   const root = await fsp.realpath(result.filePaths[0]);
   const candidates = await discoverHdlFiles(root);
   const manifest = await loadManifest(root);
-  const modules = [];
-  const instantiated = new Set();
-  const roles = {};
-  for (const relative of candidates) {
-    const content = await fsp.readFile(path.join(root, relative), 'utf8');
-    const declared = [...content.matchAll(/\bmodule\s+([A-Za-z_$][\w$]*)\b/g)].map(
-      (match) => match[1],
-    );
-    declared.forEach((name) => modules.push({ name, file: relative }));
-    for (const match of content.matchAll(
-      /(?:^|\n)\s*([A-Za-z_$][\w$]*)\s*(?:#\s*\([^;]*?\)\s*)?[A-Za-z_$][\w$]*\s*\(/g,
-    ))
-      instantiated.add(match[1]);
-    roles[relative] =
-      /(?:^|[_.-])(?:tb|testbench)(?:[_.-]|$)/i.test(relative) ||
-      declared.some((name) => /(?:^|_)(?:tb|testbench)(?:_|$)/i.test(name))
-        ? 'testbench'
-        : /\.(?:vh|svh)$/i.test(relative)
-          ? 'include'
-          : 'design';
-  }
-  const testbenches = modules.filter((item) => roles[item.file] === 'testbench');
-  const suggestedTop =
-    modules.find((item) => roles[item.file] === 'design' && !instantiated.has(item.name))?.name ||
-    modules.find((item) => roles[item.file] === 'design')?.name ||
-    '';
-  const suggestedSimulationTop =
-    testbenches.find((item) => !instantiated.has(item.name))?.name || testbenches[0]?.name || '';
+  const files = await Promise.all(
+    candidates.map(async (relative) => ({
+      path: relative,
+      content: await fsp.readFile(path.join(root, relative), 'utf8'),
+    })),
+  );
+  const { analyzeHdlFiles } = await hdlStructure;
+  const analysis = analyzeHdlFiles(files);
   return {
     root,
     name: manifest?.name || path.basename(root),
     candidates,
     selected: manifest?.files || candidates,
-    roles,
-    suggestedTop,
-    suggestedSimulationTop,
+    roles: analysis.roles,
+    suggestedTop: analysis.suggestedTop,
+    suggestedSimulationTop: analysis.suggestedSimulationTop,
   };
 });
 
@@ -775,7 +756,12 @@ ipcMain.handle('compile:run', async (event) => {
       ? startVerilatorLint(compileOptions)
       : startIcarusCompile({ ...compileOptions, executableOverride: IVERILOG_OVERRIDE }),
   );
-  event.sender.send('compile:event', { type: 'start', command: run.command });
+  event.sender.send('compile:event', {
+    type: 'start',
+    command: run.command,
+    fileCount: files.length,
+    backend: settings.simulator,
+  });
   try {
     const result = await run.completion;
     event.sender.send('compile:event', { type: 'finish', code: result.code });

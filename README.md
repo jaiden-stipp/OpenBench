@@ -163,7 +163,7 @@ pnpm test
 pnpm start
 ```
 
-The current test suite contains 56 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, learning projects, and a 50,000-timestamp waveform benchmark.
+The current test suite contains 57 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, multi-file dirty-buffer persistence, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, learning projects, and a 50,000-timestamp waveform benchmark.
 
 See the [application development notes](app/README.md) and [architecture guide](docs/ARCHITECTURE.md) for implementation details. Maintainers can use the [packaging guide](docs/PACKAGING.md) and [release handoff](docs/RELEASING.md) for native-toolchain staging, signing secrets, installer creation, packaged-backend smoke testing, and the release checklist.
 

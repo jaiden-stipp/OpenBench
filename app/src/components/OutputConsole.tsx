@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { parseDiagnostic } from '../diagnostics.js';
 import type { ConsoleMode } from '../types/ui';
 
@@ -15,7 +16,7 @@ function presentationFor(line: string, diagnostic: Diagnostic) {
   if (diagnostic) return { kind: 'diagnostic', label: 'SOURCE' };
   if (line.startsWith('$ ')) return { kind: 'command', label: 'RUN' };
   if (
-    /^(?:Starting|Compile finished|Simulation finished|Yosys finished|Opened|Created editable)/.test(
+    /^(?:Checking|Starting|Compile finished|Simulation finished|Yosys finished|Opened|Created editable)/.test(
       line,
     )
   ) {
@@ -32,18 +33,33 @@ function titleFor(mode: ConsoleMode) {
 }
 
 export default function OutputConsole({ mode, text, onClear, onOpenSource }: OutputConsoleProps) {
-  const lines = text.replaceAll('\r\n', '\n').split('\n');
+  const [showRaw, setShowRaw] = useState(false);
+  const entries = useMemo(() => prepareConsoleEntries(text), [text]);
+  const primary = entries.filter(
+    (entry) => entry.presentation.kind !== 'raw' && entry.presentation.kind !== 'command',
+  );
+  const raw = entries.filter(
+    (entry) => entry.presentation.kind === 'raw' || entry.presentation.kind === 'command',
+  );
 
   return (
     <div className="console-panel panel" style={{ gridArea: 'console' }}>
       <div className="panel-title">
         <span>{titleFor(mode)}</span>
-        <button onClick={onClear}>Clear</button>
+        <div>
+          {raw.length > 0 && (
+            <button onClick={() => setShowRaw((value) => !value)}>
+              {showRaw ? 'Hide' : 'Show'} raw ({raw.length})
+            </button>
+          )}
+          <button onClick={onClear}>Clear</button>
+        </div>
       </div>
       <div className="console" role="log">
-        {lines.map((line, index) => {
-          const diagnostic = parseDiagnostic(line);
-          const presentation = presentationFor(line, diagnostic);
+        {primary.length === 0 && raw.length > 0 && !showRaw && (
+          <div className="console-placeholder">Tool output is available under “Show raw.”</div>
+        )}
+        {[...primary, ...(showRaw ? raw : [])].map(({ line, diagnostic, presentation }, index) => {
           const className = [
             'console-line',
             presentation.kind,
@@ -80,4 +96,22 @@ export default function OutputConsole({ mode, text, onClear, onOpenSource }: Out
       </div>
     </div>
   );
+}
+
+function prepareConsoleEntries(text: string) {
+  const seenTranslations = new Set<string>();
+  return text
+    .replaceAll('\r\n', '\n')
+    .split('\n')
+    .flatMap((line) => {
+      const diagnostic = parseDiagnostic(line);
+      const presentation = presentationFor(line, diagnostic);
+      if (presentation.kind === 'translation') {
+        const normalized = line.trim();
+        if (seenTranslations.has(normalized)) return [];
+        seenTranslations.add(normalized);
+      }
+      if (!line && !diagnostic) return [];
+      return [{ line, diagnostic, presentation }];
+    });
 }

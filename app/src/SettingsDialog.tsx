@@ -117,11 +117,11 @@ export default function SettingsDialog({
           <span>Include paths</span>
           <textarea
             rows={5}
-            placeholder={'rtl/include\n../shared'}
+            placeholder="Leave empty unless your source uses `include files"
             value={includeText}
             onChange={(event) => setIncludeText(event.target.value)}
           />
-          <small>One project-relative or absolute directory per line.</small>
+          <small>Optional. Add one real project-relative or absolute directory per line.</small>
         </label>
         {error && <div className="settings-error">{error}</div>}
         <div className="settings-actions">

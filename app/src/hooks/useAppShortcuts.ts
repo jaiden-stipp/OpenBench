@@ -14,19 +14,42 @@ type ShortcutOptions = {
 };
 
 export function useAppShortcuts(options: ShortcutOptions) {
+  const {
+    activeView,
+    beginNewProject,
+    busy,
+    openProject,
+    projectReady,
+    runCompile,
+    runRtl,
+    runSimulation,
+    setPrompt,
+  } = options;
   useEffect(() => {
-    const onShortcut = (event: KeyboardEvent) => handleShortcut(event, options);
+    const onShortcut = (event: KeyboardEvent) =>
+      handleShortcut(event, {
+        activeView,
+        beginNewProject,
+        busy,
+        openProject,
+        projectReady,
+        runCompile,
+        runRtl,
+        runSimulation,
+        setPrompt,
+      });
     window.addEventListener('keydown', onShortcut);
     return () => window.removeEventListener('keydown', onShortcut);
   }, [
-    options.activeView,
-    options.beginNewProject,
-    options.busy,
-    options.openProject,
-    options.projectReady,
-    options.runCompile,
-    options.runRtl,
-    options.runSimulation,
+    activeView,
+    beginNewProject,
+    busy,
+    openProject,
+    projectReady,
+    runCompile,
+    runRtl,
+    runSimulation,
+    setPrompt,
   ]);
 }
 

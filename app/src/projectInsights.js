@@ -1,41 +1,8 @@
-const MODULE = /\bmodule\s+([A-Za-z_$][\w$]*)\b/g;
-const INSTANTIATION =
-  /(?:^|\n)\s*([A-Za-z_$][\w$]*)\s*(?:#\s*\([^;]*?\)\s*)?([A-Za-z_$][\w$]*)\s*\(/g;
+import { analyzeHdlFiles } from '../shared/hdlStructure.js';
 
 export function analyzeProjectSources(files, settings = {}) {
-  const modules = [];
-  const moduleOwners = new Map();
-  const instantiated = [];
-  for (const file of files) {
-    for (const match of file.content.matchAll(MODULE)) {
-      modules.push({ name: match[1], file: file.path });
-      const owners = moduleOwners.get(match[1]) || [];
-      owners.push(file.path);
-      moduleOwners.set(match[1], owners);
-    }
-    for (const match of file.content.matchAll(INSTANTIATION)) {
-      if (!['if', 'for', 'while', 'case', 'module', 'function', 'task'].includes(match[1]))
-        instantiated.push({ module: match[1], instance: match[2], file: file.path });
-    }
-  }
-  const moduleNames = new Set(modules.map((item) => item.name));
-  const testbenches = modules.filter(
-    (item) =>
-      /(?:^|_)(?:tb|testbench)(?:_|$)/i.test(item.name) ||
-      /(?:^|[_.-])(?:tb|testbench)(?:[_.-]|$)/i.test(item.file),
-  );
-  const instantiatedNames = new Set(instantiated.map((item) => item.module));
-  const topCandidates = modules.filter(
-    (item) =>
-      !instantiatedNames.has(item.name) &&
-      !testbenches.some((testbench) => testbench.name === item.name),
-  );
-  const missingModules = [
-    ...new Set(instantiated.map((item) => item.module).filter((name) => !moduleNames.has(name))),
-  ];
-  const duplicates = [...moduleOwners.entries()]
-    .filter(([, owners]) => owners.length > 1)
-    .map(([name, owners]) => ({ name, files: owners }));
+  const analysis = analyzeHdlFiles(files);
+  const { modules, testbenches, topCandidates, missingModules, duplicates } = analysis;
   const simulationText = files
     .filter((file) => testbenches.some((testbench) => testbench.file === file.path))
     .map((file) => file.content)
@@ -98,12 +65,8 @@ export function analyzeProjectSources(files, settings = {}) {
     missingModules,
     duplicates,
     issues,
-    suggestedTop:
-      settings.topModule ||
-      topCandidates[0]?.name ||
-      modules.find((item) => !testbenches.includes(item))?.name ||
-      '',
-    suggestedSimulationTop: settings.simulationTop || testbenches[0]?.name || '',
+    suggestedTop: settings.topModule || analysis.suggestedTop,
+    suggestedSimulationTop: settings.simulationTop || analysis.suggestedSimulationTop,
   };
 }
 

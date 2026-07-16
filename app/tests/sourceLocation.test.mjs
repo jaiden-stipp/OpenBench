@@ -16,3 +16,11 @@ test('uses the first source when Yosys joins multiple attributes', () => {
     column: 2,
   });
 });
+
+test('accepts Yosys locations that only provide a source line', () => {
+  assert.deepEqual(parseYosysSource('rtl/cpu.sv:42', 'C:/demo'), {
+    path: 'rtl/cpu.sv',
+    line: 42,
+    column: 1,
+  });
+});

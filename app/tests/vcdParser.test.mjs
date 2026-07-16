@@ -35,6 +35,9 @@ test('looks up and formats cursor values', () => {
   assert.equal(valueAt(signal.changes, 7), '1010');
   assert.equal(formatVcdValue('1010', 4, 'hex'), '0xa');
   assert.equal(formatVcdValue('1010', 4, 'dec'), '10');
+  assert.equal(formatVcdValue('x', 8, 'hex'), '0xxx');
+  assert.equal(formatVcdValue('z', 8, 'hex'), '0xzz');
+  assert.equal(formatVcdValue('x', 8, 'bin'), 'xxxxxxxx');
 });
 
 test('parses 50,000 timestamps within the benchmark budget', () => {

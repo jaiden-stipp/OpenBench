@@ -569,6 +569,15 @@ body.resizing * {
     Consolas,
     monospace;
 }
+.panel-title > div {
+  display: flex;
+  gap: 6px;
+}
+.console-placeholder {
+  padding: 8px;
+  color: #6f8299;
+  font-style: italic;
+}
 .console-line {
   min-height: 22px;
   width: 100%;
@@ -679,6 +688,26 @@ footer .bad {
 .wave-empty p {
   margin: 0;
   font-size: 12px;
+}
+.recent-waveforms {
+  width: min(420px, 80vw);
+  display: grid;
+  gap: 6px;
+  margin-top: 20px;
+  text-align: left;
+}
+.recent-waveforms > button {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 11px;
+  color: #c6d5e6;
+  border: 1px solid #304158;
+  border-radius: 5px;
+  background: #121c28;
+  cursor: pointer;
+}
+.recent-waveforms small {
+  color: #71859d;
 }
 .waveform-panel {
   min-width: 0;
@@ -1009,12 +1038,18 @@ footer .bad {
 .schematic-toolbar {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 8px;
   padding: 0 9px;
+  overflow-x: auto;
   color: #8497ad;
   border-bottom: 1px solid #27364a;
   background: #111a25;
   font-size: 10px;
+  scrollbar-width: thin;
+}
+.schematic-toolbar > * {
+  flex: 0 0 auto;
 }
 .schematic-toolbar strong {
   color: #cbd8e8;
@@ -1099,6 +1134,13 @@ footer .bad {
   border-color: #9b80c0;
   background: #2c2340;
 }
+.legend-icon.port {
+  width: 25px;
+  color: #8ee0ca;
+  border-color: #43a089;
+  background: #14302d;
+  font-size: 7px;
+}
 .schematic-stage {
   min-height: 0;
   position: relative;
@@ -1156,6 +1198,12 @@ footer .bad {
 }
 .schematic-node {
   cursor: pointer;
+  outline: none;
+}
+.schematic-node:focus-visible .block-surface {
+  stroke: #ffcb6b;
+  stroke-width: 3.5;
+  filter: drop-shadow(0 0 5px rgb(255 203 107 / 0.4));
 }
 .schematic-node .block-surface {
   fill: #152231;
@@ -1168,8 +1216,9 @@ footer .bad {
   stroke: #43a089;
 }
 .schematic-node.symbol-module .block-surface {
-  fill: #27203a;
+  fill: #231b35;
   stroke: #9b80c0;
+  stroke-width: 2.6;
 }
 .schematic-node.symbol-register .block-surface {
   fill: #102b42;
@@ -1213,6 +1262,20 @@ footer .bad {
   stroke: #101924;
   stroke-width: 3px;
 }
+.schematic-node.symbol-logic .node-name,
+.schematic-node.symbol-mux .node-name,
+.schematic-node.symbol-arithmetic .node-name,
+.schematic-node.symbol-compare .node-name {
+  font-size: 8px;
+}
+.schematic-node.symbol-module .node-name {
+  fill: #f4eaff;
+  font-size: 10px;
+}
+.schematic-node.symbol-register .node-name {
+  fill: #dcefff;
+  font-size: 9px;
+}
 .schematic-node .node-type {
   fill: #91aac1;
   font-size: 8px;
@@ -1240,9 +1303,45 @@ footer .bad {
 }
 .block-letter {
   fill: rgb(225 236 247 / 0.19);
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 900;
   text-anchor: middle;
+}
+.logic-operation {
+  fill: rgb(225 236 247 / 0.5);
+  font-size: 7px;
+  font-weight: 900;
+  text-anchor: middle;
+}
+.module-header-line {
+  fill: none;
+  stroke: #765f9a;
+  stroke-width: 1;
+}
+.module-badge {
+  fill: #6f55a0;
+  stroke: #b69bd7;
+  stroke-width: 1;
+}
+.module-badge-text {
+  fill: #fff;
+  font-size: 8px;
+  font-weight: 900;
+}
+.selected-node-summary {
+  max-width: 220px;
+  overflow: hidden;
+  padding: 3px 7px;
+  color: #dce8f5;
+  border: 1px solid #3a4d64;
+  border-radius: 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selected-node-summary.module {
+  color: #e7d8fa;
+  border-color: #765f9a;
+  background: #241c36;
 }
 .node-pin circle {
   fill: #0b121b;

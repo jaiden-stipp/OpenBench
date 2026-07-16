@@ -21,14 +21,14 @@ const concepts: Array<SourceConcept & { match: RegExp }> = [
     text: 'The new value is scheduled for the end of the current simulation step. This is normally the right assignment for clocked registers.',
   },
   {
-    match: /(^|[^<>=!])=([^=]|$)/,
-    title: 'Blocking assignment',
-    text: 'The value changes immediately within this procedural block. This is normally used for combinational calculations, not clocked state.',
-  },
-  {
     match: /\bassign\b/,
     title: 'Continuous assignment',
     text: 'The right-hand expression continuously drives the wire whenever any of its inputs changes.',
+  },
+  {
+    match: /(^|[^<>=!])=([^=]|$)/,
+    title: 'Blocking assignment',
+    text: 'The value changes immediately within this procedural block. This is normally used for combinational calculations, not clocked state.',
   },
   {
     match: /\blogic\b/,

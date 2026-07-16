@@ -54,6 +54,7 @@ type DialogLayerProps = {
   onOpenLearningProject: (lessonId: string) => Promise<void>;
   onOpenTutorialExample: () => Promise<void>;
   onRemoveProjectEntry: (node: ProjectNode) => void;
+  onSaveSettings: (settings: ProjectSettings) => Promise<void>;
   onSubmitPrompt: (value: string) => void;
   setAccessibility: Dispatch<SetStateAction<AccessibilityPreferences>>;
   setActiveView: Dispatch<SetStateAction<ActiveView>>;
@@ -62,7 +63,6 @@ type DialogLayerProps = {
   setNewProjectParent: Dispatch<SetStateAction<string | null>>;
   setPrompt: Dispatch<SetStateAction<PromptState | null>>;
   setSchematicModuleFocus: Dispatch<SetStateAction<string | null>>;
-  setSettings: Dispatch<SetStateAction<ProjectSettings>>;
   setShowAbout: Dispatch<SetStateAction<boolean>>;
   setShowGuidance: Dispatch<SetStateAction<boolean>>;
   setShowHelp: Dispatch<SetStateAction<boolean>>;
@@ -90,8 +90,7 @@ function SupportDialogs(props: DialogLayerProps) {
           initial={props.settings}
           onClose={() => props.setShowSettings(false)}
           onSave={async (next) => {
-            props.setSettings(await window.openbench.saveSettings(next));
-            props.setStatus('Project settings saved');
+            await props.onSaveSettings(next);
           }}
         />
       )}
@@ -115,9 +114,7 @@ function SupportDialogs(props: DialogLayerProps) {
           accessibility={props.accessibility}
           onAccessibility={props.setAccessibility}
           onClose={() => props.setShowGuidance(false)}
-          onSaveSettings={async (next) =>
-            props.setSettings(await window.openbench.saveSettings(next))
-          }
+          onSaveSettings={props.onSaveSettings}
           onOpenModule={(name) => {
             props.setSchematicModuleFocus(name);
             props.setActiveView('schematic');

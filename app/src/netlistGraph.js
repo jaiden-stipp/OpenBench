@@ -142,7 +142,7 @@ export function buildModuleGraph(netlist, moduleName) {
       yosysName: name,
       type: cell.type,
       width: 1,
-      source: cell.attributes?.src || null,
+      source: cell.attributes?.src || module.attributes?.src || null,
       moduleRef: isModule ? cell.type : null,
       ports,
     });
@@ -190,10 +190,26 @@ export function buildModuleGraph(netlist, moduleName) {
 }
 
 export function sourceForNet(netlist, netName) {
-  const clean = netName
+  const parts = netName
     .replace(/\s*\[[^\]]+\]\s*$/, '')
     .split('.')
-    .at(-1);
+    .map((part) => part.replace(/^\\/, ''));
+  const clean = parts.at(-1);
+  let moduleName = findTopModule(netlist);
+  if (moduleName) {
+    for (const segment of parts.slice(0, -1)) {
+      const module = netlist.modules?.[moduleName];
+      const cell = Object.entries(module?.cells || {}).find(
+        ([name]) => name.replace(/^\\/, '') === segment,
+      )?.[1];
+      if (cell && netlist.modules?.[cell.type]) moduleName = cell.type;
+    }
+    const scopedModule = netlist.modules?.[moduleName];
+    const scopedNet = Object.entries(scopedModule?.netnames || {}).find(
+      ([name]) => name.replace(/^\\/, '') === clean,
+    )?.[1];
+    if (scopedNet?.attributes?.src) return scopedNet.attributes.src;
+  }
   for (const module of Object.values(netlist.modules || {})) {
     const match = Object.entries(module.netnames || {}).find(
       ([name]) => name.replace(/^\\/, '') === clean,

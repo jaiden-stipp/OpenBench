@@ -6,12 +6,11 @@ import type { ActiveView, OpenFile } from '../types/ui';
 
 type RunActionOptions = {
   breakpoints: WaveBreakpoint[];
-  openFile: OpenFile | null;
   openFiles: OpenFile[];
   pendingBreakpointHitRef: MutableRefObject<{ condition: string; time: number } | null>;
   pendingRunSourcesRef: MutableRefObject<Record<string, string>>;
   projectSources: Array<{ path: string; content: string }>;
-  save: (triggerWatch?: boolean) => Promise<void>;
+  saveAllDirtyFiles: () => Promise<void>;
   setActiveView: Dispatch<SetStateAction<ActiveView>>;
   setCompiling: Dispatch<SetStateAction<boolean>>;
   setConsoleText: Dispatch<SetStateAction<string>>;
@@ -26,57 +25,102 @@ type RunActionOptions = {
 };
 
 export function useRunActions(options: RunActionOptions) {
-  const runCompile = async () => {
+  const {
+    breakpoints,
+    openFiles,
+    pendingBreakpointHitRef,
+    pendingRunSourcesRef,
+    projectSources,
+    saveAllDirtyFiles,
+    setActiveView,
+    setCompiling,
+    setConsoleText,
+    setHasRunSimulation,
+    setNetlist,
+    setRtlRunning,
+    setRtlTop,
+    setShowGuidance,
+    setSimulating,
+    setStatus,
+    waveformWorkerRef,
+  } = options;
+  const reportError = useCallback(
+    (error: unknown) => reportRunError(error, setConsoleText, setStatus),
+    [setConsoleText, setStatus],
+  );
+  const runCompile = useCallback(async () => {
     try {
+      await saveAllDirtyFiles();
       await window.openbench.runCompile();
     } catch (error) {
-      options.setCompiling(false);
-      reportRunError(error, options);
+      setCompiling(false);
+      reportError(error);
     }
-  };
-  const runSimulation = async () => {
+  }, [reportError, saveAllDirtyFiles, setCompiling]);
+  const runSimulation = useCallback(async () => {
     try {
-      if (isDirty(options.openFile)) await options.save(false);
-      options.pendingRunSourcesRef.current = Object.fromEntries([
-        ...options.projectSources.map((file) => [file.path, file.content] as const),
-        ...options.openFiles.map((file) => [file.path, file.content] as const),
+      await saveAllDirtyFiles();
+      pendingRunSourcesRef.current = Object.fromEntries([
+        ...projectSources.map((file) => [file.path, file.content] as const),
+        ...openFiles.map((file) => [file.path, file.content] as const),
       ]);
-      const result = await window.openbench.runSimulation(options.breakpoints);
-      options.pendingBreakpointHitRef.current = result.breakpointHit || null;
-      options.setHasRunSimulation(true);
-      options.setStatus('Parsing VCD off the UI thread');
-      options.waveformWorkerRef.current?.postMessage(await window.openbench.readLatestVcd());
+      const result = await window.openbench.runSimulation(breakpoints);
+      pendingBreakpointHitRef.current = result.breakpointHit || null;
+      setHasRunSimulation(true);
+      setStatus('Parsing VCD off the UI thread');
+      waveformWorkerRef.current?.postMessage(await window.openbench.readLatestVcd());
     } catch (error) {
-      options.setSimulating(false);
-      options.setShowGuidance(true);
-      reportRunError(error, options);
+      setSimulating(false);
+      setShowGuidance(true);
+      reportError(error);
     }
-  };
-  const runRtl = async () => {
+  }, [
+    breakpoints,
+    openFiles,
+    pendingBreakpointHitRef,
+    pendingRunSourcesRef,
+    projectSources,
+    reportError,
+    saveAllDirtyFiles,
+    setHasRunSimulation,
+    setShowGuidance,
+    setSimulating,
+    setStatus,
+    waveformWorkerRef,
+  ]);
+  const runRtl = useCallback(async () => {
     try {
-      if (isDirty(options.openFile)) await options.save(false);
+      await saveAllDirtyFiles();
       await window.openbench.runRtl();
       const result = await window.openbench.readLatestNetlist();
-      options.setNetlist(result.netlist);
-      options.setRtlTop(result.top);
-      options.setActiveView('schematic');
-      options.setStatus(`ELK layout for ${result.top}`);
+      setNetlist(result.netlist);
+      setRtlTop(result.top);
+      setActiveView('schematic');
+      setStatus(`ELK layout for ${result.top}`);
     } catch (error) {
-      options.setRtlRunning(false);
-      reportRunError(error, options);
+      setRtlRunning(false);
+      reportError(error);
     }
-  };
+  }, [
+    reportError,
+    saveAllDirtyFiles,
+    setActiveView,
+    setNetlist,
+    setRtlRunning,
+    setRtlTop,
+    setStatus,
+  ]);
   return { runCompile, runRtl, runSimulation };
 }
 
-function isDirty(file: OpenFile | null) {
-  return Boolean(file && file.content !== file.savedContent);
-}
-
-function reportRunError(error: unknown, options: RunActionOptions) {
+function reportRunError(
+  error: unknown,
+  setConsoleText: Dispatch<SetStateAction<string>>,
+  setStatus: Dispatch<SetStateAction<string>>,
+) {
   const message = error instanceof Error ? error.message : String(error);
-  options.setConsoleText((value) => `${value}\n${message}\n`);
-  options.setStatus(message);
+  setConsoleText((value) => `${value}\n${message}\n`);
+  setStatus(message);
 }
 
 type CrossProbeOptions = {
@@ -91,25 +135,25 @@ type CrossProbeOptions = {
 };
 
 export function useCrossProbeActions(options: CrossProbeOptions) {
+  const { netlist, openPath, project, setSchematicProbe, setStatus } = options;
   const navigateYosysSource = useCallback(
     (source: string) => {
-      if (!options.project) return;
-      const location = parseYosysSource(source, options.project.root);
-      if (location) void options.openPath(location.path, location.line, location.column);
-      else options.setStatus(`No source location for ${source}`);
+      if (!project) return;
+      const location = parseYosysSource(source, project.root);
+      if (location) void openPath(location.path, location.line, location.column);
+      else setStatus(`No source location for ${source}`);
     },
-    [options.openPath, options.project],
+    [openPath, project, setStatus],
   );
   const navigateWaveSignal = useCallback(
     (signal: VcdSignal) => {
       const cleanName = signal.name.replace(/\s*\[[^\]]+\]\s*$/, '');
-      options.setSchematicProbe(cleanName);
-      const source = options.netlist ? sourceForNet(options.netlist, signal.path) : null;
+      setSchematicProbe(cleanName);
+      const source = netlist ? sourceForNet(netlist, signal.path) : null;
       if (source) navigateYosysSource(source);
-      else
-        options.setStatus(`No Yosys declaration found for ${signal.path}. Run RTL Analysis first.`);
+      else setStatus(`No Yosys declaration found for ${signal.path}. Run RTL Analysis first.`);
     },
-    [navigateYosysSource, options.netlist],
+    [navigateYosysSource, netlist, setSchematicProbe, setStatus],
   );
   const generateTestbench = async (moduleName: string, stimulus?: StimulusOptions) => {
     try {

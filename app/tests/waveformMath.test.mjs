@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   adjacentTransitionTime,
+  formatSimulationTime,
   hasChangeInRange,
   sampleVisibleChanges,
 } from '../src/waveformMath.ts';
@@ -14,6 +15,11 @@ test('pixel sampler bounds 50,000 transitions to canvas resolution', () => {
   assert.ok(sampled.length <= 1_921, `sampled ${sampled.length} changes`);
   assert.ok(elapsed < 100, `sampling took ${elapsed.toFixed(1)} ms`);
   assert.deepEqual(sampled.at(-1), [49_999, '1']);
+});
+
+test('formats raw VCD ticks in a student-readable physical unit', () => {
+  assert.equal(formatSimulationTime(44_931, '1ps'), '44.931 ns');
+  assert.equal(formatSimulationTime(25, '10ns'), '250 ns');
 });
 
 test('range and edge lookups use sorted transition positions', () => {

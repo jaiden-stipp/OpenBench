@@ -15,11 +15,12 @@ type EntryActionOptions = {
 };
 
 export function useProjectEntryActions(options: EntryActionOptions) {
+  const { setProject } = options;
   const refreshProject = useCallback(async () => {
     const next = await window.openbench.refreshProject();
-    options.setProject(next);
+    setProject(next);
     return next;
-  }, []);
+  }, [setProject]);
 
   const addProjectFiles = async () => {
     try {

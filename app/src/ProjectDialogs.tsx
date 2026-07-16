@@ -46,13 +46,14 @@ export function ImportProjectDialog({
         </p>
         {(selection.suggestedTop || selection.suggestedSimulationTop) && (
           <div className="import-suggestion">
-            <strong>Suggested setup</strong>
+            <strong>Detected module hierarchy</strong>
             <span>
               Design top: <code>{selection.suggestedTop || 'not detected'}</code>
             </span>
             <span>
               Simulation top: <code>{selection.suggestedSimulationTop || 'not detected'}</code>
             </span>
+            <small>Review these choices before adding the folder; you can change them later.</small>
           </div>
         )}
         <label className="project-name">

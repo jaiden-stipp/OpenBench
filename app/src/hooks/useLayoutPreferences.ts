@@ -42,19 +42,20 @@ function useStoredLayout(theme: Theme, explorerDock: 'left' | 'right', consoleDo
 }
 
 function useResizablePanels(options: LayoutPreferences) {
+  const { resizeRef, setConsoleHeight, setConsoleWidth, setExplorerWidth } = options;
   useEffect(() => {
     const move = (event: PointerEvent) => {
-      const resize = options.resizeRef.current;
+      const resize = resizeRef.current;
       if (!resize) return;
       const coordinate = resize.kind === 'consoleHeight' ? event.clientY : event.clientX;
       const next = resize.size + (coordinate - resize.start) * resize.direction;
-      if (resize.kind === 'explorer') options.setExplorerWidth(Math.max(170, Math.min(480, next)));
+      if (resize.kind === 'explorer') setExplorerWidth(Math.max(170, Math.min(480, next)));
       else if (resize.kind === 'consoleHeight')
-        options.setConsoleHeight(Math.max(120, Math.min(480, next)));
-      else options.setConsoleWidth(Math.max(240, Math.min(620, next)));
+        setConsoleHeight(Math.max(120, Math.min(480, next)));
+      else setConsoleWidth(Math.max(240, Math.min(620, next)));
     };
     const stop = () => {
-      options.resizeRef.current = null;
+      resizeRef.current = null;
       document.body.classList.remove('resizing');
     };
     window.addEventListener('pointermove', move);
@@ -63,5 +64,5 @@ function useResizablePanels(options: LayoutPreferences) {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', stop);
     };
-  }, []);
+  }, [resizeRef, setConsoleHeight, setConsoleWidth, setExplorerWidth]);
 }

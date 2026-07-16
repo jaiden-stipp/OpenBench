@@ -26,6 +26,7 @@ import {
   useProjectPickerActions,
 } from './hooks/useProjectLifecycleActions';
 import { useSessionRestore, useSessionSave } from './hooks/useSessionPersistence';
+import { useProjectSettings } from './hooks/useProjectSettings';
 import AppWorkspace from './components/AppWorkspace';
 import {
   useFileTabActions,
@@ -198,6 +199,7 @@ export default function App() {
     setCompilePassed,
     setConsoleMode,
     setConsoleText,
+    setLintStatus,
     setRtlRunning,
     setShowGuidance,
     setSimulating,
@@ -293,9 +295,10 @@ export default function App() {
   );
 
   const runInlineLint = useInlineLint({ lintRequestRef, setLintStatus });
-  const save = useFilePersistence({
+  const { save, saveAllDirtyFiles } = useFilePersistence({
     hasRunSimulation,
     openFile,
+    openFiles,
     project,
     runInlineLint,
     setOpenFiles,
@@ -308,12 +311,11 @@ export default function App() {
 
   const { runCompile, runRtl, runSimulation } = useRunActions({
     breakpoints,
-    openFile,
     openFiles,
     pendingBreakpointHitRef,
     pendingRunSourcesRef,
     projectSources,
-    save,
+    saveAllDirtyFiles,
     setActiveView,
     setCompiling,
     setConsoleText,
@@ -336,6 +338,17 @@ export default function App() {
     setProject,
     setSchematicProbe,
     setStatus,
+  });
+  const saveProjectSettings = useProjectSettings({
+    settings,
+    setHasRunSimulation,
+    setNetlist,
+    setRtlTop,
+    setSettings,
+    setStatus,
+    setWaveform,
+    setWaveformName,
+    setWaveformSession,
   });
 
   useAppShortcuts({
@@ -550,6 +563,7 @@ export default function App() {
         onOpenLearningProject={openLearningProject}
         onOpenTutorialExample={() => openExampleProject(true)}
         onRemoveProjectEntry={(node) => void removeProjectEntry(node)}
+        onSaveSettings={saveProjectSettings}
         onSubmitPrompt={(value) => void submitPrompt(value)}
         setAccessibility={setAccessibility}
         setActiveView={setActiveView}
@@ -558,7 +572,6 @@ export default function App() {
         setNewProjectParent={setNewProjectParent}
         setPrompt={setPrompt}
         setSchematicModuleFocus={setSchematicModuleFocus}
-        setSettings={setSettings}
         setShowAbout={setShowAbout}
         setShowGuidance={setShowGuidance}
         setShowHelp={setShowHelp}

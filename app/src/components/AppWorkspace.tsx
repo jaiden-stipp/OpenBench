@@ -55,7 +55,7 @@ export type AppWorkspaceProps = {
   onEditorMount: OnMount;
   onNavigateWaveSignal: (signal: VcdSignal) => void;
   onNavigateYosysSource: (source: string) => void;
-  onLoadWaveformRun: (runId: string) => Promise<void>;
+  onLoadWaveformRun: (runId: string, open?: boolean) => Promise<void>;
   onNewProject: () => void;
   onOpenExample: () => void;
   onOpenPath: (path: string, line?: number, column?: number) => void;
@@ -193,6 +193,7 @@ function ActiveWorkspaceView(props: AppWorkspaceProps) {
   if (props.activeView === 'waveform') {
     return (
       <WaveformPanel
+        key={props.project?.root || 'no-project'}
         data={props.waveform}
         name={props.waveformName}
         runs={props.simulationRuns}

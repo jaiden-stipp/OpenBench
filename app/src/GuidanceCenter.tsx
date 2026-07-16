@@ -163,13 +163,13 @@ export default function GuidanceCenter({
                   settings.simulationTop !== insights.suggestedSimulationTop) && (
                   <div className="health-action">
                     <span>
-                      <strong>Suggested setup</strong>
+                      <strong>Hierarchy-based setup</strong>
                       <small>
                         Design: {insights.suggestedTop || 'not found'} · Testbench:{' '}
                         {insights.suggestedSimulationTop || 'not found'}
                       </small>
                     </span>
-                    <button onClick={() => void applySuggestions()}>Use suggestions</button>
+                    <button onClick={() => void applySuggestions()}>Apply detected tops</button>
                   </div>
                 )}
               <div className="insight-list">

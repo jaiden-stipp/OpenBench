@@ -65,31 +65,16 @@ function friendlyNetLabel(value: string) {
       .replace(/\s*\[[^\]]+\]\s*$/, '')
       .split('.')
       .at(-1) || '';
-  if (
-    !clean ||
-    clean.startsWith('$') ||
-    /\.(?:sv|v|vh):\d/i.test(clean) ||
-    /^bit \d+$/i.test(clean)
-  )
+  if (!clean || clean.startsWith('$') || /^(?:sv|v|vh):\d/i.test(clean) || /^bit \d+$/i.test(clean))
     return 'internal connection';
   return clean.length > 24 ? `${clean.slice(0, 23)}…` : clean;
 }
 
 function friendlyPinLabel(node: LayoutNode, pin: LayoutPin) {
   const name = pin.name.toUpperCase();
-  if (node.symbol === 'mux')
-    return (
-      (
-        {
-          A: 'input 0',
-          B: 'input 1',
-          S: 'select',
-          SEL: 'select',
-          SELECT: 'select',
-          Y: 'output',
-        } as Record<string, string>
-      )[name] || pin.name
-    );
+  if (['logic', 'mux', 'arithmetic', 'compare'].includes(node.symbol)) {
+    return name === 'S' || name === 'SEL' || name === 'SELECT' ? 'SEL' : name;
+  }
   if (node.symbol === 'register')
     return (
       (
@@ -106,10 +91,6 @@ function friendlyPinLabel(node: LayoutNode, pin: LayoutPin) {
         } as Record<string, string>
       )[name] || pin.name
     );
-  if (node.symbol === 'logic')
-    return ({ A: 'input', B: 'input 2', Y: 'output' } as Record<string, string>)[name] || pin.name;
-  if (node.symbol === 'arithmetic')
-    return ({ A: 'left', B: 'right', Y: 'result' } as Record<string, string>)[name] || pin.name;
   return pin.direction === 'output' && name === 'Y' ? 'output' : pin.name;
 }
 
@@ -131,15 +112,15 @@ function nodeMetrics(node: SchematicNode) {
   if (node.kind === 'port') {
     const side = sideFor(ports[0]);
     return {
-      width: 150,
-      height: 48,
+      width: 128,
+      height: 42,
       pins: [
         {
           ...ports[0],
           id: pinId(node.id, ports[0].name),
           side,
-          x: side === 'WEST' ? -4 : 146,
-          y: 20,
+          x: side === 'WEST' ? -4 : 124,
+          y: 17,
         },
       ],
     };
@@ -148,35 +129,30 @@ function nodeMetrics(node: SchematicNode) {
   const right = ports.filter((port) => sideFor(port) === 'EAST');
   const bottom = ports.filter((port) => sideFor(port) === 'SOUTH');
   const rows = Math.max(left.length, right.length, 1);
-  const width =
-    node.symbol === 'module'
-      ? 214
-      : node.symbol === 'register'
-        ? 150
-        : node.symbol === 'mux'
-          ? 132
-          : node.symbol === 'logic'
-            ? 124
-            : node.symbol === 'arithmetic'
-              ? 138
-              : node.symbol === 'compare'
-                ? 122
-                : 158;
-  const baseHeight =
-    node.symbol === 'mux'
-      ? 112
-      : node.symbol === 'register'
-        ? 100
-        : node.symbol === 'logic'
-          ? 78
-          : 88;
-  const height = Math.max(baseHeight, 56 + rows * 20);
+  const dimensionsBySymbol = {
+    module: { width: 208, baseHeight: 76, startY: 34, pitch: 18 },
+    register: { width: 132, baseHeight: 78, startY: 32, pitch: 17 },
+    mux: { width: 94, baseHeight: 68, startY: 25, pitch: 16 },
+    logic: { width: 82, baseHeight: 54, startY: 23, pitch: 15 },
+    arithmetic: { width: 102, baseHeight: 62, startY: 25, pitch: 16 },
+    compare: { width: 88, baseHeight: 56, startY: 24, pitch: 15 },
+    memory: { width: 148, baseHeight: 84, startY: 32, pitch: 17 },
+    generic: { width: 112, baseHeight: 62, startY: 25, pitch: 16 },
+  } as const;
+  const dimensions =
+    dimensionsBySymbol[node.symbol === 'port' ? 'generic' : node.symbol] ||
+    dimensionsBySymbol.generic;
+  const width = dimensions.width;
+  const height = Math.max(
+    dimensions.baseHeight,
+    dimensions.startY + Math.max(0, rows - 1) * dimensions.pitch + 25,
+  );
   const place = (port: NodePort, index: number, side: 'WEST' | 'EAST'): LayoutPin => ({
     ...port,
     id: pinId(node.id, port.name),
     side,
     x: side === 'WEST' ? -4 : width - 4,
-    y: 40 + index * 20,
+    y: dimensions.startY + index * dimensions.pitch,
   });
   return {
     width,
@@ -200,6 +176,21 @@ function NodeBody({ node }: { node: LayoutNode }) {
   const operation = node.type.replace(/^\$/, '').toLowerCase();
   const isNot = symbol === 'logic' && /(?:^|_)not$|logic_not/.test(operation);
   const isAnd = symbol === 'logic' && /and/.test(operation);
+  const logicOperation = isNot
+    ? 'NOT'
+    : operation.includes('xnor')
+      ? 'XNOR'
+      : operation.includes('xor')
+        ? 'XOR'
+        : operation.includes('nand')
+          ? 'NAND'
+          : operation.includes('and')
+            ? 'AND'
+            : operation.includes('nor')
+              ? 'NOR'
+              : operation.includes('or')
+                ? 'OR'
+                : '';
   return (
     <g className={`node-body ${symbol}`}>
       <title>
@@ -263,9 +254,23 @@ function NodeBody({ node }: { node: LayoutNode }) {
           </text>
         </>
       )}
+      {symbol === 'module' && (
+        <>
+          <path className="module-header-line" d={`M5 29 H${width - 5}`} />
+          <rect className="module-badge" x="10" y="9" width="19" height="13" rx="2" />
+          <text className="module-badge-text" x="19.5" y="19" textAnchor="middle">
+            M
+          </text>
+        </>
+      )}
       {symbol === 'mux' && (
         <text className="block-letter" x={width / 2} y={height / 2 + 7}>
           MUX
+        </text>
+      )}
+      {symbol === 'logic' && logicOperation && (
+        <text className="logic-operation" x={width / 2} y={height / 2 + 3}>
+          {logicOperation}
         </text>
       )}
       {symbol === 'arithmetic' && (
@@ -387,8 +392,8 @@ export default function SchematicPanel({
         'elk.algorithm': 'layered',
         'elk.direction': 'RIGHT',
         'elk.edgeRouting': 'ORTHOGONAL',
-        'elk.spacing.nodeNode': '58',
-        'elk.layered.spacing.nodeNodeBetweenLayers': '105',
+        'elk.spacing.nodeNode': '42',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '88',
         'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
         'elk.padding': '[top=52,left=52,bottom=52,right=52]',
       },
@@ -472,6 +477,7 @@ export default function SchematicPanel({
 
   const modules = Object.keys(netlist.modules || {});
   const selectedClean = cleanNet(selectedNet);
+  const selectedNodeDetails = layout?.nodes.find((node) => node.id === selectedNode) || null;
   return (
     <div className="schematic-panel">
       <div className="schematic-toolbar">
@@ -483,9 +489,20 @@ export default function SchematicPanel({
         </select>
         <span>
           {layout
-            ? `${layout.nodes.length} blocks · ${layout.edges.length} nets`
+            ? `${summarizeNodes(layout.nodes)} · ${layout.edges.length} nets`
             : 'Running ELK layout…'}
         </span>
+        {selectedNodeDetails && (
+          <span className={`selected-node-summary ${selectedNodeDetails.symbol}`}>
+            {selectedNodeDetails.name} · {symbolLabel(selectedNodeDetails.symbol)}
+          </span>
+        )}
+        {selectedNodeDetails?.source && (
+          <button onClick={() => onNavigateSource(selectedNodeDetails.source!)}>Open source</button>
+        )}
+        {selectedNodeDetails?.moduleRef && (
+          <button onClick={() => setModuleName(selectedNodeDetails.moduleRef!)}>Open module</button>
+        )}
         {selectedNet && (
           <code title={`Yosys net: ${selectedNet}`}>signal: {friendlyNetLabel(selectedNet)}</code>
         )}
@@ -523,6 +540,9 @@ export default function SchematicPanel({
         </span>
         <span>
           <i className="legend-icon module">□</i>Module
+        </span>
+        <span>
+          <i className="legend-icon port">I/O</i>Port
         </span>
         <small>Wires terminate on labeled inputs and outputs.</small>
       </div>
@@ -611,10 +631,22 @@ export default function SchematicPanel({
                     key={node.id}
                     className={`schematic-node ${node.kind} symbol-${node.symbol} ${selected ? 'selected' : ''}`}
                     transform={`translate(${node.x} ${node.y})`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${node.name}, ${symbolLabel(node.symbol)}. Double click or use Open source to navigate.`}
                     onClick={(event) => {
                       event.stopPropagation();
                       setSelectedNode(node.id);
+                    }}
+                    onDoubleClick={(event) => {
+                      event.stopPropagation();
                       if (node.source) onNavigateSource(node.source);
+                    }}
+                    onKeyDown={(event) => {
+                      if ((event.key === 'Enter' || event.key === ' ') && node.source) {
+                        event.preventDefault();
+                        onNavigateSource(node.source);
+                      }
                     }}
                   >
                     <NodeBody node={node} />
@@ -623,7 +655,7 @@ export default function SchematicPanel({
                         <text
                           className="port-name"
                           x={node.layoutWidth / 2}
-                          y="22"
+                          y="19"
                           textAnchor="middle"
                         >
                           {node.name}
@@ -632,7 +664,7 @@ export default function SchematicPanel({
                         <text
                           className="port-direction"
                           x={node.layoutWidth / 2}
-                          y="37"
+                          y="33"
                           textAnchor="middle"
                         >
                           {node.direction}
@@ -641,22 +673,26 @@ export default function SchematicPanel({
                     ) : (
                       <>
                         <title>{`${node.name} · Yosys type ${node.type}`}</title>
-                        <text
-                          className="node-name"
-                          x={node.layoutWidth / 2}
-                          y="20"
-                          textAnchor="middle"
-                        >
-                          {node.name.length > 20 ? `${node.name.slice(0, 19)}…` : node.name}
-                        </text>
-                        <text
-                          className="node-type"
-                          x={node.layoutWidth / 2}
-                          y={node.symbol === 'mux' ? 37 : node.layoutHeight - 12}
-                          textAnchor="middle"
-                        >
-                          {symbolLabel(node.symbol)}
-                        </text>
+                        {showsNodeHeading(node) && (
+                          <text
+                            className="node-name"
+                            x={node.layoutWidth / 2 + (node.symbol === 'module' ? 11 : 0)}
+                            y={node.symbol === 'module' ? 20 : 15}
+                            textAnchor="middle"
+                          >
+                            {displayNodeName(node)}
+                          </text>
+                        )}
+                        {showsNodeCaption(node) && (
+                          <text
+                            className="node-type"
+                            x={node.layoutWidth / 2}
+                            y={node.layoutHeight - 8}
+                            textAnchor="middle"
+                          >
+                            {symbolLabel(node.symbol)}
+                          </text>
+                        )}
                         <PinLabels node={node} />
                       </>
                     )}
@@ -683,4 +719,26 @@ export default function SchematicPanel({
       </div>
     </div>
   );
+}
+
+function displayNodeName(node: LayoutNode) {
+  const limit = node.symbol === 'module' ? 24 : node.symbol === 'register' ? 17 : 13;
+  return node.name.length > limit ? `${node.name.slice(0, limit - 1)}…` : node.name;
+}
+
+function showsNodeHeading(node: LayoutNode) {
+  return ['module', 'register', 'memory', 'generic'].includes(node.symbol);
+}
+
+function showsNodeCaption(node: LayoutNode) {
+  return ['module', 'register', 'memory', 'generic'].includes(node.symbol);
+}
+
+function summarizeNodes(nodes: LayoutNode[]) {
+  const modules = nodes.filter((node) => node.symbol === 'module').length;
+  const registers = nodes.filter((node) => node.symbol === 'register').length;
+  const primitives = nodes.filter(
+    (node) => !['module', 'port', 'register'].includes(node.symbol),
+  ).length;
+  return `${modules} module${modules === 1 ? '' : 's'} · ${registers} register${registers === 1 ? '' : 's'} · ${primitives} primitive${primitives === 1 ? '' : 's'}`;
 }

@@ -38,6 +38,8 @@ type WaveformSession = {
   cursor: number;
   cursorB?: number | null;
   bookmarks?: Array<{ time: number; label: string }>;
+  preset?: 'all' | 'essentials' | 'clocks-resets' | 'selected';
+  projectRoot?: string;
 };
 type OpenBenchSession = {
   version: number;
@@ -49,7 +51,12 @@ type OpenBenchSession = {
   waveform: WaveformSession | null;
 };
 type CompileEvent =
-  | { type: 'start'; command: string }
+  | {
+      type: 'start';
+      command: string;
+      fileCount?: number;
+      backend?: 'iverilog' | 'verilator';
+    }
   | { type: 'output'; stream: 'stdout' | 'stderr' | 'translation'; text: string }
   | { type: 'finish'; code: number };
 type SimulationEvent =
@@ -124,11 +131,11 @@ interface OpenBenchApi {
     vcdPath: string;
     breakpointHit?: { condition: string; time: number } | null;
   }>;
-  readLatestVcd(): Promise<{ name: string; content: string }>;
+  readLatestVcd(): Promise<{ id: string; name: string; content: string }>;
   listWaveformRuns(): Promise<
     Array<{ id: string; name: string; createdAt: number; fileName: string; size: number }>
   >;
-  readWaveformRun(runId: string): Promise<{ name: string; content: string }>;
+  readWaveformRun(runId: string): Promise<{ id: string; name: string; content: string }>;
   runRtl(): Promise<{ code: number; top: string; moduleCount: number }>;
   readLatestNetlist(): Promise<{
     name: string;

@@ -15,29 +15,38 @@ type SessionSaveOptions = {
 };
 
 export function useSessionSave(options: SessionSaveOptions) {
+  const {
+    activeFilePath,
+    activeView,
+    editorCursor,
+    openFiles,
+    projectRoot,
+    sessionReady,
+    waveformSession,
+  } = options;
   useEffect(() => {
-    if (!options.sessionReady) return;
+    if (!sessionReady) return;
     const timer = setTimeout(
       () =>
         void window.openbench.saveSession({
-          projectRoot: options.projectRoot || '',
-          openFiles: options.openFiles.map((file) => file.path),
-          activeFile: options.activeFilePath || '',
-          activeView: options.activeView,
-          editorCursor: options.editorCursor,
-          waveform: options.waveformSession,
+          projectRoot: projectRoot || '',
+          openFiles: openFiles.map((file) => file.path),
+          activeFile: activeFilePath || '',
+          activeView,
+          editorCursor,
+          waveform: waveformSession ? { ...waveformSession, projectRoot: projectRoot || '' } : null,
         }),
       250,
     );
     return () => clearTimeout(timer);
   }, [
-    options.activeFilePath,
-    options.activeView,
-    options.editorCursor,
-    options.openFiles,
-    options.projectRoot,
-    options.sessionReady,
-    options.waveformSession,
+    activeFilePath,
+    activeView,
+    editorCursor,
+    openFiles,
+    projectRoot,
+    sessionReady,
+    waveformSession,
   ]);
 }
 
@@ -56,15 +65,55 @@ type SessionRestoreOptions = {
 };
 
 export function useSessionRestore(options: SessionRestoreOptions) {
+  const {
+    loadProject,
+    setActiveFilePath,
+    setActiveView,
+    setEditorCursor,
+    setNetlist,
+    setOpenFiles,
+    setRtlTop,
+    setSessionReady,
+    setStatus,
+    setWaveformSession,
+    waveformWorkerRef,
+  } = options;
   useEffect(() => {
     let cancelled = false;
-    void restoreSession(options, () => cancelled).finally(() => {
-      if (!cancelled) options.setSessionReady(true);
+    void restoreSession(
+      {
+        loadProject,
+        setActiveFilePath,
+        setActiveView,
+        setEditorCursor,
+        setNetlist,
+        setOpenFiles,
+        setRtlTop,
+        setSessionReady,
+        setStatus,
+        setWaveformSession,
+        waveformWorkerRef,
+      },
+      () => cancelled,
+    ).finally(() => {
+      if (!cancelled) setSessionReady(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [options.loadProject]);
+  }, [
+    loadProject,
+    setActiveFilePath,
+    setActiveView,
+    setEditorCursor,
+    setNetlist,
+    setOpenFiles,
+    setRtlTop,
+    setSessionReady,
+    setStatus,
+    setWaveformSession,
+    waveformWorkerRef,
+  ]);
 }
 
 async function restoreSession(options: SessionRestoreOptions, cancelled: () => boolean) {
@@ -77,7 +126,13 @@ async function restoreSession(options: SessionRestoreOptions, cancelled: () => b
     await options.loadProject(current, false);
     if (cancelled()) return;
     options.setEditorCursor(session.editorCursor);
-    options.setWaveformSession(session.waveform);
+    options.setWaveformSession(
+      !session.waveform ||
+        !session.waveform.projectRoot ||
+        session.waveform.projectRoot === current.root
+        ? session.waveform
+        : null,
+    );
     const restoredFiles = await restoreOpenFiles(session.openFiles, current.files);
     options.setOpenFiles(restoredFiles);
     options.setActiveFilePath(
@@ -117,7 +172,10 @@ async function restoreActiveView(
 ) {
   if (activeView === 'waveform') {
     try {
-      options.waveformWorkerRef.current?.postMessage(await window.openbench.readLatestVcd());
+      options.waveformWorkerRef.current?.postMessage({
+        ...(await window.openbench.readLatestVcd()),
+        purpose: 'open',
+      });
       return;
     } catch {
       options.setActiveView(files.length ? 'source' : 'waveform');

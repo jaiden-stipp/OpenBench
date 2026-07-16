@@ -138,8 +138,28 @@ export function valueAt(changes: VcdChange[], time: number): string {
 
 export function formatVcdValue(value: string, width: number, radix: 'bin' | 'hex' | 'dec'): string {
   if (!/^[01xz]+$/i.test(value)) return value;
-  if (radix === 'bin' || /[xz]/i.test(value)) return width > 1 ? value.padStart(width, '0') : value;
-  const numeric = BigInt(`0b${value || '0'}`);
+  const normalized =
+    value.length === 1 && /[xz]/i.test(value)
+      ? value.toLowerCase().repeat(Math.max(1, width))
+      : value.toLowerCase().padStart(Math.max(1, width), '0');
+  if (radix === 'bin') return normalized;
+  if (/[xz]/.test(normalized)) {
+    if (radix === 'dec') return normalized.includes('x') ? 'X' : 'Z';
+    return `0x${bitsToUnknownAwareHex(normalized)}`;
+  }
+  const numeric = BigInt(`0b${normalized || '0'}`);
   if (radix === 'hex') return `0x${numeric.toString(16).padStart(Math.ceil(width / 4), '0')}`;
   return numeric.toString(10);
+}
+
+function bitsToUnknownAwareHex(bits: string) {
+  const padded = bits.padStart(Math.ceil(bits.length / 4) * 4, '0');
+  let result = '';
+  for (let index = 0; index < padded.length; index += 4) {
+    const nibble = padded.slice(index, index + 4);
+    if (nibble.includes('x') || (nibble.includes('z') && !/^z+$/.test(nibble))) result += 'x';
+    else if (/^z+$/.test(nibble)) result += 'z';
+    else result += Number.parseInt(nibble, 2).toString(16);
+  }
+  return result;
 }

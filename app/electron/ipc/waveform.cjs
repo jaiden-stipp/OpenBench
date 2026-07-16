@@ -47,7 +47,11 @@ async function waveformMetadata(canonicalRoot, file) {
 async function readVcdInsideProject(projectRoot, vcdPath) {
   const canonicalRoot = await fsp.realpath(projectRoot);
   const canonicalVcd = resolveInside(canonicalRoot, await fsp.realpath(vcdPath));
-  return { name: path.basename(canonicalVcd), content: await fsp.readFile(canonicalVcd, 'utf8') };
+  return {
+    id: path.relative(canonicalRoot, canonicalVcd).replaceAll('\\', '/'),
+    name: path.basename(canonicalVcd),
+    content: await fsp.readFile(canonicalVcd, 'utf8'),
+  };
 }
 
 async function recentGeneratedFiles(projectRoot, extension, limit) {

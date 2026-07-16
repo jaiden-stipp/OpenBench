@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { VcdData, VcdSignal } from './vcdParser.js';
 import { formatVcdValue, valueAt } from './vcdParser.js';
 import { drawWaveforms, HEADER_HEIGHT, ROW_HEIGHT } from './waveformRenderer';
-import { adjacentTransitionTime, hasChangeInRange } from './waveformMath.js';
+import { adjacentTransitionTime, formatSimulationTime, hasChangeInRange } from './waveformMath.js';
 
 type Radix = 'bin' | 'hex' | 'dec';
 type SignalView = { key: string; radix: Radix; group: string; selected: boolean };
 type VisibleSignal = SignalView & { signal: VcdSignal };
+type SignalPreset = 'all' | 'essentials' | 'clocks-resets' | 'selected';
 
 export default function WaveformPanel({
   data,
@@ -37,7 +38,7 @@ export default function WaveformPanel({
   }>;
   probeSignal?: string | null;
   onSignalNavigate?: (signal: VcdSignal) => void;
-  onLoadRun?: (runId: string) => Promise<void>;
+  onLoadRun?: (runId: string, open?: boolean) => Promise<void>;
   theme?: 'dark' | 'light';
   displayOptions?: { highContrast: boolean; largeText: boolean };
   breakpoints: WaveBreakpoint[];
@@ -48,6 +49,7 @@ export default function WaveformPanel({
 }) {
   const [views, setViews] = useState<SignalView[]>([]);
   const [search, setSearch] = useState('');
+  const [preset, setPreset] = useState<SignalPreset>('all');
   const [groupFilter, setGroupFilter] = useState('All groups');
   const [groupName, setGroupName] = useState('');
   const [viewport, setViewport] = useState({ start: 0, end: 1 });
@@ -67,6 +69,7 @@ export default function WaveformPanel({
   const dragKey = useRef<string | null>(null);
   const wheelFrame = useRef<number | null>(null);
   const pendingViewport = useRef(viewport);
+  const initialSessionRef = useRef(initialSession);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(480);
 
@@ -75,37 +78,39 @@ export default function WaveformPanel({
   }, [viewport]);
 
   useEffect(() => {
+    initialSessionRef.current = initialSession;
+  }, [initialSession]);
+
+  useEffect(() => {
     if (!data) return;
+    const session = initialSessionRef.current;
     const defaults = data.signals.map((signal) => ({
       key: signal.key,
       radix: signal.width > 4 ? ('hex' as const) : ('bin' as const),
       group: signal.scope || 'Top',
       selected: false,
     }));
-    const restored = new Map(initialSession?.views.map((view) => [view.key, view]) || []);
+    const restored = new Map(session?.views.map((view) => [view.key, view]) || []);
     setViews(
       defaults
         .map((view) => (restored.has(view.key) ? { ...view, ...restored.get(view.key)! } : view))
         .sort(
           (a, b) =>
-            (initialSession?.views.findIndex((view) => view.key === a.key) ?? 9999) -
-            (initialSession?.views.findIndex((view) => view.key === b.key) ?? 9999),
+            (session?.views.findIndex((view) => view.key === a.key) ?? 9999) -
+            (session?.views.findIndex((view) => view.key === b.key) ?? 9999),
         ),
     );
     const fullEnd = Math.max(1, data.endTime);
-    setSearch(initialSession?.search || '');
-    setGroupFilter(initialSession?.groupFilter || 'All groups');
+    setSearch(session?.search || '');
+    setPreset(session?.preset || 'all');
+    setGroupFilter(session?.groupFilter || 'All groups');
     setViewport({
-      start: Math.max(0, Math.min(fullEnd - 1, initialSession?.viewStart ?? 0)),
-      end: Math.max(1, Math.min(fullEnd, initialSession?.viewEnd ?? fullEnd)),
+      start: Math.max(0, Math.min(fullEnd - 1, session?.viewStart ?? 0)),
+      end: Math.max(1, Math.min(fullEnd, session?.viewEnd ?? fullEnd)),
     });
-    setCursor(Math.max(0, Math.min(fullEnd, initialSession?.cursor ?? 0)));
-    setCursorB(
-      initialSession?.cursorB == null
-        ? null
-        : Math.max(0, Math.min(fullEnd, initialSession.cursorB)),
-    );
-    setBookmarks(initialSession?.bookmarks || []);
+    setCursor(Math.max(0, Math.min(fullEnd, session?.cursor ?? 0)));
+    setCursorB(session?.cursorB == null ? null : Math.max(0, Math.min(fullEnd, session.cursorB)));
+    setBookmarks(session?.bookmarks || []);
   }, [data]);
 
   useEffect(() => {
@@ -121,6 +126,7 @@ export default function WaveformPanel({
           cursor,
           cursorB,
           bookmarks,
+          preset,
         }),
       100,
     );
@@ -132,6 +138,7 @@ export default function WaveformPanel({
     data,
     groupFilter,
     onSessionChange,
+    preset,
     search,
     viewEnd,
     viewStart,
@@ -163,11 +170,12 @@ export default function WaveformPanel({
       views.flatMap((view) => {
         const signal = signalMap.get(view.key);
         if (!signal || !signal.path.toLowerCase().includes(search.toLowerCase())) return [];
+        if (!matchesPreset(signal, view, preset)) return [];
         if (groupFilter !== 'All groups' && view.group !== groupFilter) return [];
         if (changedOnly && !hasChangeInRange(signal.changes, viewStart, viewEnd)) return [];
         return [{ ...view, signal }];
       }),
-    [changedOnly, groupFilter, search, signalMap, viewEnd, viewStart, views],
+    [changedOnly, groupFilter, preset, search, signalMap, viewEnd, viewStart, views],
   );
   const virtualRange = useMemo(() => {
     const overscan = 5;
@@ -308,7 +316,22 @@ export default function WaveformPanel({
       <div className="wave-empty">
         <div className="chip">VCD</div>
         <h1>No waveform loaded</h1>
-        <p>Run a simulation to generate a real trace.</p>
+        <p>Run a simulation, or reopen a recent trace without rerunning the design.</p>
+        {runs.length > 0 && (
+          <div className="recent-waveforms">
+            <strong>Recent traces</strong>
+            {runs.slice(0, 4).map((run) => (
+              <button
+                key={run.id}
+                disabled={run.loading}
+                onClick={() => void onLoadRun?.(run.id, true)}
+              >
+                <span>{run.loading ? 'Loading…' : run.name}</span>
+                <small>{formatFileSize(run.size || 0)}</small>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
 
@@ -389,10 +412,20 @@ export default function WaveformPanel({
         )}
         <input
           aria-label="Search signals"
-          placeholder="Search signals"
+          placeholder="Signal or hierarchy"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
+        <select
+          aria-label="Signal set"
+          value={preset}
+          onChange={(event) => setPreset(event.target.value as SignalPreset)}
+        >
+          <option value="all">All signals</option>
+          <option value="essentials">CPU essentials</option>
+          <option value="clocks-resets">Clocks & resets</option>
+          <option value="selected">Selected only</option>
+        </select>
         <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
           {groups.map((group) => (
             <option key={group}>{group}</option>
@@ -437,11 +470,12 @@ export default function WaveformPanel({
           Place B
         </button>
         <span className="measurement-readout">
-          A {Math.round(cursor)}
+          A {formatSimulationTime(cursor, data.timescale)}
           {cursorB !== null && (
             <>
               {' '}
-              · B {Math.round(cursorB)} · Δ {Math.round(delta!)} ticks
+              · B {formatSimulationTime(cursorB, data.timescale)} · Δ{' '}
+              {formatSimulationTime(delta!, data.timescale)}
               {frequencyLabel && ` · ${frequencyLabel}`}
             </>
           )}
@@ -493,7 +527,7 @@ export default function WaveformPanel({
             <option value="">Bookmarks ({bookmarks.length})</option>
             {bookmarks.map((mark, index) => (
               <option key={`${mark.time}-${index}`} value={index}>
-                {mark.label} · {Math.round(mark.time)}
+                {mark.label} · {formatSimulationTime(mark.time, data.timescale)}
               </option>
             ))}
           </select>
@@ -527,7 +561,7 @@ export default function WaveformPanel({
         <div className="signal-list">
           <div className="signal-header">
             <span>Signal</span>
-            <span>Value @ {Math.round(cursor)}</span>
+            <span>Value @ {formatSimulationTime(cursor, data.timescale)}</span>
           </div>
           <div style={{ height: virtualRange.first * ROW_HEIGHT }} aria-hidden="true" />
           {virtualRange.signals.map((view) => {
@@ -575,8 +609,8 @@ export default function WaveformPanel({
                     title={`${view.signal.path} — open declaration`}
                     onClick={() => onSignalNavigate?.(view.signal)}
                   >
-                    <span>{view.signal.path}</span>
-                    <small>{view.group}</small>
+                    <span>{signalLeafName(view.signal)}</span>
+                    <small title={view.signal.path}>{view.signal.scope || 'Top'}</small>
                   </button>
                   <select
                     value={view.radix}
@@ -724,4 +758,29 @@ export default function WaveformPanel({
       </div>
     </div>
   );
+}
+
+function matchesPreset(signal: VcdSignal, view: SignalView, preset: SignalPreset) {
+  if (preset === 'all') return true;
+  if (preset === 'selected') return view.selected;
+  const name = signal.path.toLowerCase();
+  const clockOrReset = /(?:^|[._])(?:clk|clock|rst|reset)(?:$|[._[])/.test(name);
+  if (preset === 'clocks-resets') return clockOrReset;
+  return (
+    clockOrReset ||
+    /(?:pc|program_counter|instruction|opcode|state|address|data|result|valid|ready|enable|halt)/.test(
+      name,
+    )
+  );
+}
+
+function signalLeafName(signal: VcdSignal) {
+  return signal.name || signal.path.split('.').at(-1) || signal.path;
+}
+
+function formatFileSize(bytes: number) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
