@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { resolveInside } = require('./security.cjs');
+const { isAllowedNavigation, resolveInside } = require('./security.cjs');
 const { startIcarusCompile, startVerilatorLint } = require('./compiler.cjs');
 const { runIcarusSimulation, runVerilatorSimulation } = require('./simulator.cjs');
 const { runYosysElaboration } = require('./yosys.cjs');
@@ -28,6 +28,8 @@ const {
 const { createSessionStore } = require('./sessionStore.cjs');
 const { ensureExampleProject } = require('./exampleProject.cjs');
 const { createSupportBundle, runBackendSelfTest } = require('./support.cjs');
+const { createWorkspaceRegistry } = require('./workspaceController.cjs');
+const { registerWaveformIpc } = require('./ipc/waveform.cjs');
 
 const HDL_EXTENSIONS = new Set(['.v', '.sv', '.vh', '.svh']);
 const TEST_PROJECT = process.env.OPENBENCH_TEST_PROJECT || process.env.RTLBENCH_TEST_PROJECT;
@@ -36,13 +38,9 @@ const TEST_ACTION =
 const CAPTURE_PATH = process.env.OPENBENCH_CAPTURE_PATH || process.env.RTLBENCH_CAPTURE_PATH;
 const DEV_URL = process.env.OPENBENCH_DEV_URL || process.env.RTLBENCH_DEV_URL;
 const IVERILOG_OVERRIDE = process.env.OPENBENCH_IVERILOG || process.env.RTLBENCH_IVERILOG;
-let activeProject = TEST_PROJECT ? path.resolve(TEST_PROJECT) : null;
-let compileProcess = null;
-let lintProcess = null;
-let simulationRunning = false;
-let latestVcdPath = null;
-let rtlRunning = false;
-let latestNetlistPath = null;
+const initialProjectRoot = TEST_PROJECT ? path.resolve(TEST_PROJECT) : null;
+const workspaceRegistry = createWorkspaceRegistry(initialProjectRoot);
+const getWorkspace = (sender) => workspaceRegistry.forSender(sender);
 
 if (CAPTURE_PATH)
   app.setPath('userData', path.join(path.dirname(CAPTURE_PATH), '.electron-validation'));
@@ -66,10 +64,10 @@ function createWindow() {
 
   const devUrl = DEV_URL;
   const entryFile = path.join(__dirname, '..', 'dist', 'index.html');
-  const allowedUrl = devUrl || pathToFileURL(entryFile).href;
+  const packagedEntryUrl = pathToFileURL(entryFile).href;
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith(allowedUrl)) event.preventDefault();
+    if (!isAllowedNavigation(url, devUrl, packagedEntryUrl)) event.preventDefault();
   });
 
   if (CAPTURE_PATH) {
@@ -377,28 +375,6 @@ async function newestGeneratedFile(projectRoot, extension) {
   return newest?.path || null;
 }
 
-async function recentGeneratedFiles(projectRoot, extension, limit = 6) {
-  const files = [];
-  async function walk(directory) {
-    let entries;
-    try {
-      entries = await fsp.readdir(directory, { withFileTypes: true });
-    } catch (error) {
-      if (error.code === 'ENOENT') return;
-      throw error;
-    }
-    for (const entry of entries) {
-      const absolute = path.join(directory, entry.name);
-      if (entry.isDirectory()) await walk(absolute);
-      else if (path.extname(entry.name).toLowerCase() === extension)
-        files.push({ path: absolute, modified: (await fsp.stat(absolute)).mtimeMs });
-    }
-  }
-  await walk(path.join(projectRoot, '.openbench-runs'));
-  await walk(path.join(projectRoot, '.rtlbench-runs'));
-  return files.sort((a, b) => b.modified - a.modified).slice(0, limit);
-}
-
 function translatedOutput(sender, channel, backend, projectRoot) {
   const translator = createErrorTranslator({ backend, projectRoot });
   const unmatchedLog = path.join(projectRoot, '.openbench-runs', 'unmatched-errors.jsonl');
@@ -420,7 +396,12 @@ function translatedOutput(sender, channel, backend, projectRoot) {
               .join('\n') + '\n',
           ),
         )
-        .catch(() => {});
+        .catch((error) =>
+          console.warn('OpenBench could not append unmatched backend diagnostics', {
+            projectRoot,
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        );
     }
   };
   return {
@@ -434,6 +415,53 @@ function translatedOutput(sender, channel, backend, projectRoot) {
       emitProcessed(pending.stderr);
     },
   };
+}
+
+async function prepareBackendRun(
+  event,
+  { designOnly = false, allowEmpty = false, operation } = {},
+) {
+  const workspace = getWorkspace(event.sender);
+  const projectRoot = workspace.captureProject();
+  if (workspace.isBackendBusy()) throw new Error('Another backend operation is already running.');
+  workspace.stopLint();
+  if (operation) workspace.startOperation(operation);
+  try {
+    const allFiles = flattenFiles((await projectData(projectRoot)).tree).filter((file) =>
+      ['.v', '.sv'].includes(path.extname(file).toLowerCase()),
+    );
+    const designFiles = designOnly
+      ? allFiles.filter((file) => !/(^|[_.-])(tb|testbench)([_.-]|$)/i.test(path.basename(file)))
+      : allFiles;
+    const files = designOnly && designFiles.length ? designFiles : allFiles;
+    if (!allowEmpty && !files.length)
+      throw new Error(
+        designOnly
+          ? 'The project contains no Verilog or SystemVerilog design sources.'
+          : 'The project contains no Verilog or SystemVerilog source files.',
+      );
+    const settings = await loadProjectSettings(projectRoot);
+    const suiteRoot = resolveToolchainRoot({
+      projectRoot,
+      configuredPath: settings.toolchainPath,
+      appDirectory: __dirname,
+    });
+    return { workspace, projectRoot, files, settings, suiteRoot };
+  } catch (error) {
+    if (operation) workspace.finishOperation(operation);
+    throw error;
+  }
+}
+
+function launchPreparedProcess(workspace, operation, launch) {
+  try {
+    const run = launch();
+    workspace.startOperation(operation, run.child);
+    return run;
+  } catch (error) {
+    workspace.finishOperation(operation);
+    throw error;
+  }
 }
 
 ipcMain.handle('project:selectFolder', async () => {
@@ -484,21 +512,19 @@ ipcMain.handle('project:selectFolder', async () => {
   };
 });
 
-ipcMain.handle('project:activate', async (_event, selection) => {
+ipcMain.handle('project:activate', async (event, selection) => {
   const next = await activateProject(selection.root, selection.files || [], selection.name);
-  activeProject = next.root;
-  const currentSettings = await loadProjectSettings(activeProject);
+  getWorkspace(event.sender).setProject(next.root);
+  const currentSettings = await loadProjectSettings(next.root);
   if (
     (!currentSettings.topModule && selection.suggestedTop) ||
     (!currentSettings.simulationTop && selection.suggestedSimulationTop)
   )
-    await saveProjectSettings(activeProject, {
+    await saveProjectSettings(next.root, {
       ...currentSettings,
       topModule: currentSettings.topModule || selection.suggestedTop || '',
       simulationTop: currentSettings.simulationTop || selection.suggestedSimulationTop || '',
     });
-  latestVcdPath = null;
-  latestNetlistPath = null;
   return next;
 });
 
@@ -510,98 +536,107 @@ ipcMain.handle('project:chooseNewParent', async () => {
   return result.canceled ? null : result.filePaths[0] || null;
 });
 
-ipcMain.handle('project:create', async (_event, options) => {
+ipcMain.handle('project:create', async (event, options) => {
   const next = await createProject(options.parent, options.name, options.withStarter !== false);
-  activeProject = next.root;
-  latestVcdPath = null;
-  latestNetlistPath = null;
+  getWorkspace(event.sender).setProject(next.root);
   return next;
 });
 
-ipcMain.handle('project:getActive', async () => {
-  if (!activeProject) return null;
-  return projectData(activeProject);
+ipcMain.handle('project:getActive', async (event) => {
+  const projectRoot = getWorkspace(event.sender).projectRoot;
+  if (!projectRoot) return null;
+  return projectData(projectRoot);
 });
 
-ipcMain.handle('project:restore', async (_event, root) => {
+ipcMain.handle('project:restore', async (event, root) => {
   try {
-    activeProject = await fsp.realpath(root);
-    latestVcdPath = null;
-    latestNetlistPath = null;
-    return await projectData(activeProject);
+    const projectRoot = await fsp.realpath(root);
+    getWorkspace(event.sender).setProject(projectRoot);
+    return await projectData(projectRoot);
   } catch (error) {
-    activeProject = null;
+    getWorkspace(event.sender).setProject(null);
     if (error.code === 'ENOENT') return null;
     throw error;
   }
 });
 
-ipcMain.handle('example:open', async (_event, lessonId = 'getting-started') => {
+ipcMain.handle('example:open', async (event, lessonId = 'getting-started') => {
   const next = await ensureExampleProject(app.getPath('userData'), lessonId);
-  activeProject = next.root;
-  latestVcdPath = null;
-  latestNetlistPath = null;
+  getWorkspace(event.sender).setProject(next.root);
   return next;
 });
 
 ipcMain.handle('session:load', () => sessionStore.loadSession());
 ipcMain.handle('session:save', (_event, value) => sessionStore.saveSession(value));
-ipcMain.handle('recovery:load', async (_event, relativePath) => {
-  if (!activeProject) return null;
-  return sessionStore.loadDraft(activeProject, normalizeRelative(relativePath));
+ipcMain.handle('recovery:load', async (event, relativePath) => {
+  const projectRoot = getWorkspace(event.sender).projectRoot;
+  if (!projectRoot) return null;
+  return sessionStore.loadDraft(projectRoot, normalizeRelative(relativePath));
 });
-ipcMain.handle('recovery:save', async (_event, relativePath, content) => {
-  if (!activeProject) throw new Error('No project is open.');
-  return sessionStore.saveDraft(activeProject, normalizeRelative(relativePath), content);
+ipcMain.handle('recovery:save', async (event, relativePath, content) => {
+  const projectRoot = getWorkspace(event.sender).captureProject();
+  return sessionStore.saveDraft(projectRoot, normalizeRelative(relativePath), content);
 });
-ipcMain.handle('recovery:clear', async (_event, relativePath) => {
-  if (!activeProject) return;
-  await sessionStore.clearDraft(activeProject, normalizeRelative(relativePath));
-});
-
-ipcMain.handle('settings:get', async () => {
-  if (!activeProject) throw new Error('No project is open.');
-  return await loadProjectSettings(activeProject);
+ipcMain.handle('recovery:clear', async (event, relativePath) => {
+  const projectRoot = getWorkspace(event.sender).projectRoot;
+  if (!projectRoot) return;
+  await sessionStore.clearDraft(projectRoot, normalizeRelative(relativePath));
 });
 
-ipcMain.handle('settings:save', async (_event, settings) => {
-  if (!activeProject) throw new Error('No project is open.');
-  return await saveProjectSettings(activeProject, settings);
+ipcMain.handle('settings:get', async (event) => {
+  return await loadProjectSettings(getWorkspace(event.sender).captureProject());
 });
 
-ipcMain.handle('project:refresh', async () => {
-  if (!activeProject) throw new Error('No project is open.');
-  return projectData(activeProject);
+ipcMain.handle('settings:save', async (event, settings) => {
+  return await saveProjectSettings(getWorkspace(event.sender).captureProject(), settings);
 });
 
-ipcMain.handle('project:addFiles', async () => {
-  if (!activeProject) throw new Error('No project is open.');
+ipcMain.handle('project:refresh', async (event) => {
+  return projectData(getWorkspace(event.sender).captureProject());
+});
+
+ipcMain.handle('project:readSources', async (event) => {
+  const projectRoot = getWorkspace(event.sender).captureProject();
+  const canonicalRoot = await fsp.realpath(projectRoot);
+  const files = flattenFiles((await projectData(projectRoot)).tree).filter((file) =>
+    ['.v', '.sv'].includes(path.extname(file).toLowerCase()),
+  );
+  return Promise.all(
+    files.map(async (relativePath) => ({
+      path: relativePath,
+      content: await fsp.readFile(
+        resolveInside(canonicalRoot, await fsp.realpath(path.join(canonicalRoot, relativePath))),
+        'utf8',
+      ),
+    })),
+  );
+});
+
+ipcMain.handle('project:addFiles', async (event) => {
+  const projectRoot = getWorkspace(event.sender).captureProject();
   const result = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections'],
     title: 'Add HDL files to this project',
     filters: [{ name: 'Verilog and SystemVerilog', extensions: ['v', 'sv', 'vh', 'svh'] }],
   });
   if (result.canceled) return [];
-  return importFiles(activeProject, result.filePaths);
+  return importFiles(projectRoot, result.filePaths);
 });
 
-ipcMain.handle('file:create', async (_event, relativePath, content = '') => {
-  if (!activeProject) throw new Error('No project is open.');
-  return createFile(activeProject, relativePath, content);
+ipcMain.handle('file:create', async (event, relativePath, content = '') => {
+  return createFile(getWorkspace(event.sender).captureProject(), relativePath, content);
 });
 
-ipcMain.handle('folder:create', async (_event, relativePath) => {
-  if (!activeProject) throw new Error('No project is open.');
-  return createFolder(activeProject, relativePath);
+ipcMain.handle('folder:create', async (event, relativePath) => {
+  return createFolder(getWorkspace(event.sender).captureProject(), relativePath);
 });
 
-ipcMain.handle('file:rename', async (_event, relativePath, newName) => {
-  if (!activeProject) throw new Error('No project is open.');
-  return renameEntry(activeProject, relativePath, newName);
+ipcMain.handle('file:rename', async (event, relativePath, newName) => {
+  return renameEntry(getWorkspace(event.sender).captureProject(), relativePath, newName);
 });
 
 ipcMain.handle('file:remove', async (event, relativePath) => {
-  if (!activeProject) throw new Error('No project is open.');
+  const projectRoot = getWorkspace(event.sender).captureProject();
   const owner = BrowserWindow.fromWebContents(event.sender);
   const result = await dialog.showMessageBox(owner, {
     type: 'warning',
@@ -615,18 +650,17 @@ ipcMain.handle('file:remove', async (event, relativePath) => {
     noLink: true,
   });
   if (result.response !== 1) return false;
-  await removeEntry(activeProject, relativePath, (target) => shell.trashItem(target));
+  await removeEntry(projectRoot, relativePath, (target) => shell.trashItem(target));
   return true;
 });
 
-ipcMain.handle('file:duplicate', async (_event, relativePath) => {
-  if (!activeProject) throw new Error('No project is open.');
-  return duplicateFile(activeProject, relativePath);
+ipcMain.handle('file:duplicate', async (event, relativePath) => {
+  return duplicateFile(getWorkspace(event.sender).captureProject(), relativePath);
 });
 
-ipcMain.handle('file:reveal', async (_event, relativePath) => {
-  if (!activeProject) throw new Error('No project is open.');
-  const canonicalRoot = await fsp.realpath(activeProject);
+ipcMain.handle('file:reveal', async (event, relativePath) => {
+  const projectRoot = getWorkspace(event.sender).captureProject();
+  const canonicalRoot = await fsp.realpath(projectRoot);
   const target = resolveInside(
     canonicalRoot,
     await fsp.realpath(path.join(canonicalRoot, relativePath)),
@@ -655,19 +689,20 @@ ipcMain.handle('feedback:composeEmail', async (_event, kind, backend) => {
   await shell.openExternal(`mailto:jaidenstipp@gmail.com?${query.toString()}`);
 });
 
-ipcMain.handle('health:runSelfTest', async () => {
-  if (!activeProject) throw new Error('Open a project before running the toolchain self-test.');
-  const settings = await loadProjectSettings(activeProject);
+ipcMain.handle('health:runSelfTest', async (event) => {
+  const projectRoot = getWorkspace(event.sender).captureProject();
+  const settings = await loadProjectSettings(projectRoot);
   const suiteRoot = resolveToolchainRoot({
-    projectRoot: activeProject,
+    projectRoot,
     configuredPath: settings.toolchainPath,
   });
   return runBackendSelfTest(suiteRoot);
 });
 
 ipcMain.handle('support:exportBundle', async (event, options = {}) => {
-  const project = activeProject ? await projectData(activeProject) : null;
-  const settings = activeProject ? await loadProjectSettings(activeProject) : null;
+  const projectRoot = getWorkspace(event.sender).projectRoot;
+  const project = projectRoot ? await projectData(projectRoot) : null;
+  const settings = projectRoot ? await loadProjectSettings(projectRoot) : null;
   const owner = BrowserWindow.fromWebContents(event.sender);
   const result = await dialog.showSaveDialog(owner, {
     title: 'Save OpenBench diagnostic bundle',
@@ -696,67 +731,50 @@ ipcMain.handle('edit:action', async (event, action) => {
   else if (action === 'selectAll') contents.selectAll();
 });
 
-ipcMain.handle('file:read', async (_event, relativePath) => {
-  if (!activeProject) throw new Error('No project is open.');
-  const canonicalRoot = await fsp.realpath(activeProject);
+ipcMain.handle('file:read', async (event, relativePath) => {
+  const projectRoot = getWorkspace(event.sender).captureProject();
+  const canonicalRoot = await fsp.realpath(projectRoot);
   const absolutePath = resolveInside(
     canonicalRoot,
-    await fsp.realpath(path.join(activeProject, relativePath)),
+    await fsp.realpath(path.join(projectRoot, relativePath)),
   );
   return { path: relativePath, content: await fsp.readFile(absolutePath, 'utf8') };
 });
 
-ipcMain.handle('file:write', async (_event, relativePath, content) => {
-  if (!activeProject) throw new Error('No project is open.');
-  const canonicalRoot = await fsp.realpath(activeProject);
+ipcMain.handle('file:write', async (event, relativePath, content) => {
+  const projectRoot = getWorkspace(event.sender).captureProject();
+  const canonicalRoot = await fsp.realpath(projectRoot);
   const absolutePath = resolveInside(
     canonicalRoot,
-    await fsp.realpath(path.join(activeProject, relativePath)),
+    await fsp.realpath(path.join(projectRoot, relativePath)),
   );
   await fsp.writeFile(absolutePath, content, 'utf8');
   return { path: relativePath, saved: true };
 });
 
 ipcMain.handle('compile:run', async (event) => {
-  if (!activeProject) throw new Error('No project is open.');
-  if (compileProcess || simulationRunning || rtlRunning)
-    throw new Error('Another backend operation is already running.');
-  if (lintProcess) {
-    lintProcess.kill();
-    lintProcess = null;
-  }
-  const tree = (await projectData(activeProject)).tree;
-  const files = flattenFiles(tree).filter((file) =>
-    ['.v', '.sv'].includes(path.extname(file).toLowerCase()),
-  );
-  if (!files.length)
-    throw new Error('The project contains no Verilog or SystemVerilog source files.');
-
-  const settings = await loadProjectSettings(activeProject);
-  const suiteRoot = resolveToolchainRoot({
-    projectRoot: activeProject,
-    configuredPath: settings.toolchainPath,
-    appDirectory: __dirname,
+  const { workspace, projectRoot, files, settings, suiteRoot } = await prepareBackendRun(event, {
+    operation: 'compile',
   });
   const translated = translatedOutput(
     event.sender,
     'compile:event',
     settings.simulator,
-    activeProject,
+    projectRoot,
   );
   const compileOptions = {
-    projectRoot: activeProject,
+    projectRoot,
     files,
     suiteRoot,
     includePaths: settings.includePaths,
     topModule: settings.simulationTop || settings.topModule,
     onOutput: translated.output,
   };
-  const run =
+  const run = launchPreparedProcess(workspace, 'compile', () =>
     settings.simulator === 'verilator'
       ? startVerilatorLint(compileOptions)
-      : startIcarusCompile({ ...compileOptions, executableOverride: IVERILOG_OVERRIDE });
-  compileProcess = run.child;
+      : startIcarusCompile({ ...compileOptions, executableOverride: IVERILOG_OVERRIDE }),
+  );
   event.sender.send('compile:event', { type: 'start', command: run.command });
   try {
     const result = await run.completion;
@@ -767,28 +785,23 @@ ipcMain.handle('compile:run', async (event) => {
     throw error;
   } finally {
     translated.flush();
-    compileProcess = null;
+    workspace.finishOperation('compile', run.child);
   }
 });
 
-ipcMain.handle('lint:run', async () => {
-  if (!activeProject || compileProcess || simulationRunning || rtlRunning)
+ipcMain.handle('lint:run', async (event) => {
+  const workspace = getWorkspace(event.sender);
+  if (!workspace.projectRoot || workspace.isBackendBusy())
     return { code: 0, output: '', skipped: true };
-  if (lintProcess) lintProcess.kill();
-  const tree = (await projectData(activeProject)).tree;
-  const files = flattenFiles(tree).filter((file) =>
-    ['.v', '.sv'].includes(path.extname(file).toLowerCase()),
-  );
-  if (!files.length) return { code: 0, output: '', skipped: false };
-  const settings = await loadProjectSettings(activeProject);
-  const suiteRoot = resolveToolchainRoot({
-    projectRoot: activeProject,
-    configuredPath: settings.toolchainPath,
-    appDirectory: __dirname,
-  });
+  const prepared = await prepareBackendRun(event, { allowEmpty: true, operation: 'lint' });
+  const { projectRoot, files, settings, suiteRoot } = prepared;
+  if (!files.length) {
+    workspace.finishOperation('lint');
+    return { code: 0, output: '', skipped: false };
+  }
   let output = '';
   const options = {
-    projectRoot: activeProject,
+    projectRoot,
     files,
     suiteRoot,
     includePaths: settings.includePaths,
@@ -797,55 +810,38 @@ ipcMain.handle('lint:run', async () => {
       output += text;
     },
   };
-  const run =
+  const run = launchPreparedProcess(workspace, 'lint', () =>
     settings.simulator === 'verilator'
       ? startVerilatorLint(options)
-      : startIcarusCompile({ ...options, executableOverride: IVERILOG_OVERRIDE });
-  lintProcess = run.child;
+      : startIcarusCompile({ ...options, executableOverride: IVERILOG_OVERRIDE }),
+  );
   try {
     const result = await run.completion;
     return { code: result.code, output, skipped: false };
   } catch (error) {
     return { code: -1, output: `${output}${error.message}\n`, skipped: false };
   } finally {
-    if (lintProcess === run.child) lintProcess = null;
+    workspace.finishOperation('lint', run.child);
   }
 });
 
 ipcMain.handle('simulation:run', async (event, breakpoints = []) => {
-  if (!activeProject) throw new Error('No project is open.');
-  if (compileProcess || simulationRunning || rtlRunning)
-    throw new Error('Another backend operation is already running.');
-  if (lintProcess) {
-    lintProcess.kill();
-    lintProcess = null;
-  }
-  const tree = (await projectData(activeProject)).tree;
-  const files = flattenFiles(tree).filter((file) =>
-    ['.v', '.sv'].includes(path.extname(file).toLowerCase()),
-  );
-  if (!files.length)
-    throw new Error('The project contains no Verilog or SystemVerilog source files.');
-  const settings = await loadProjectSettings(activeProject);
-  const suiteRoot = resolveToolchainRoot({
-    projectRoot: activeProject,
-    configuredPath: settings.toolchainPath,
-    appDirectory: __dirname,
+  const { workspace, projectRoot, files, settings, suiteRoot } = await prepareBackendRun(event, {
+    operation: 'simulation',
   });
-  simulationRunning = true;
-  latestVcdPath = null;
+  workspace.latestVcdPath = null;
   event.sender.send('simulation:event', { type: 'start', backend: settings.simulator });
   const translated = translatedOutput(
     event.sender,
     'simulation:event',
     settings.simulator,
-    activeProject,
+    projectRoot,
   );
   try {
     const simulation =
       settings.simulator === 'verilator' ? runVerilatorSimulation : runIcarusSimulation;
     const result = await simulation({
-      projectRoot: activeProject,
+      projectRoot,
       files,
       suiteRoot,
       includePaths: settings.includePaths,
@@ -853,7 +849,7 @@ ipcMain.handle('simulation:run', async (event, breakpoints = []) => {
       breakpoints: settings.simulator === 'iverilog' ? breakpoints : [],
       onOutput: translated.output,
     });
-    latestVcdPath = result.vcdPath;
+    if (workspace.projectRoot === projectRoot) workspace.latestVcdPath = result.vcdPath;
     event.sender.send('simulation:event', {
       type: 'finish',
       code: 0,
@@ -870,75 +866,30 @@ ipcMain.handle('simulation:run', async (event, breakpoints = []) => {
     throw error;
   } finally {
     translated.flush();
-    simulationRunning = false;
+    workspace.finishOperation('simulation');
   }
 });
 
-ipcMain.handle('waveform:readLatest', async () => {
-  if (!activeProject) throw new Error('No simulation waveform is available.');
-  if (!latestVcdPath) latestVcdPath = await newestGeneratedFile(activeProject, '.vcd');
-  if (!latestVcdPath) throw new Error('No simulation waveform is available.');
-  const canonicalRoot = await fsp.realpath(activeProject);
-  const canonicalVcd = resolveInside(canonicalRoot, await fsp.realpath(latestVcdPath));
-  return { name: path.basename(canonicalVcd), content: await fsp.readFile(canonicalVcd, 'utf8') };
-});
-
-ipcMain.handle('waveform:listRuns', async () => {
-  if (!activeProject) return [];
-  const canonicalRoot = await fsp.realpath(activeProject);
-  const files = await recentGeneratedFiles(canonicalRoot, '.vcd');
-  return Promise.all(
-    files.map(async (file, index) => {
-      const canonical = resolveInside(canonicalRoot, await fsp.realpath(file.path));
-      return {
-        id: `saved-${file.modified}-${index}`,
-        name: path.basename(path.dirname(canonical)),
-        createdAt: file.modified,
-        fileName: path.basename(canonical),
-        content: await fsp.readFile(canonical, 'utf8'),
-      };
-    }),
-  );
-});
+registerWaveformIpc({ ipcMain, getWorkspace });
 
 ipcMain.handle('rtl:run', async (event) => {
-  if (!activeProject) throw new Error('No project is open.');
-  if (compileProcess || simulationRunning || rtlRunning)
-    throw new Error('Another backend operation is already running.');
-  if (lintProcess) {
-    lintProcess.kill();
-    lintProcess = null;
-  }
-  const tree = (await projectData(activeProject)).tree;
-  const allFiles = flattenFiles(tree).filter((file) =>
-    ['.v', '.sv'].includes(path.extname(file).toLowerCase()),
-  );
-  const designFiles = allFiles.filter(
-    (file) => !/(^|[_.-])(tb|testbench)([_.-]|$)/i.test(path.basename(file)),
-  );
-  const files = designFiles.length ? designFiles : allFiles;
-  if (!files.length)
-    throw new Error('The project contains no Verilog or SystemVerilog design sources.');
-  const settings = await loadProjectSettings(activeProject);
-  const suiteRoot = resolveToolchainRoot({
-    projectRoot: activeProject,
-    configuredPath: settings.toolchainPath,
-    appDirectory: __dirname,
+  const { workspace, projectRoot, files, settings, suiteRoot } = await prepareBackendRun(event, {
+    designOnly: true,
+    operation: 'rtl',
   });
-  rtlRunning = true;
-  latestNetlistPath = null;
+  workspace.latestNetlistPath = null;
   event.sender.send('rtl:event', { type: 'start' });
-  const translated = translatedOutput(event.sender, 'rtl:event', 'yosys', activeProject);
+  const translated = translatedOutput(event.sender, 'rtl:event', 'yosys', projectRoot);
   try {
     const result = await runYosysElaboration({
-      projectRoot: activeProject,
+      projectRoot,
       files,
       suiteRoot,
       topModule: settings.topModule,
       includePaths: settings.includePaths,
       onOutput: translated.output,
     });
-    latestNetlistPath = result.jsonPath;
+    if (workspace.projectRoot === projectRoot) workspace.latestNetlistPath = result.jsonPath;
     event.sender.send('rtl:event', {
       type: 'finish',
       code: 0,
@@ -951,16 +902,21 @@ ipcMain.handle('rtl:run', async (event) => {
     throw error;
   } finally {
     translated.flush();
-    rtlRunning = false;
+    workspace.finishOperation('rtl');
   }
 });
 
-ipcMain.handle('rtl:readLatest', async () => {
-  if (!activeProject) throw new Error('No elaborated RTL netlist is available.');
-  if (!latestNetlistPath) latestNetlistPath = await newestGeneratedFile(activeProject, '.json');
-  if (!latestNetlistPath) throw new Error('No elaborated RTL netlist is available.');
-  const canonicalRoot = await fsp.realpath(activeProject);
-  const canonicalJson = resolveInside(canonicalRoot, await fsp.realpath(latestNetlistPath));
+ipcMain.handle('rtl:readLatest', async (event) => {
+  const workspace = getWorkspace(event.sender);
+  const projectRoot = workspace.captureProject();
+  if (!workspace.latestNetlistPath)
+    workspace.latestNetlistPath = await newestGeneratedFile(projectRoot, '.json');
+  if (!workspace.latestNetlistPath) throw new Error('No elaborated RTL netlist is available.');
+  const canonicalRoot = await fsp.realpath(projectRoot);
+  const canonicalJson = resolveInside(
+    canonicalRoot,
+    await fsp.realpath(workspace.latestNetlistPath),
+  );
   const netlist = JSON.parse(await fsp.readFile(canonicalJson, 'utf8'));
   const modules = Object.entries(netlist.modules || {});
   const top =
@@ -972,16 +928,18 @@ ipcMain.handle('rtl:readLatest', async () => {
   return { name: path.basename(canonicalJson), top, netlist };
 });
 
-ipcMain.handle('testbench:generate', async (_event, moduleName, options = {}) => {
-  if (!activeProject || !latestNetlistPath)
+ipcMain.handle('testbench:generate', async (event, moduleName, options = {}) => {
+  const workspace = getWorkspace(event.sender);
+  const projectRoot = workspace.captureProject();
+  if (!workspace.latestNetlistPath)
     throw new Error(
       'Run RTL Analysis before generating a testbench. OpenBench uses the real Yosys port metadata.',
     );
-  const netlist = JSON.parse(await fsp.readFile(latestNetlistPath, 'utf8'));
+  const netlist = JSON.parse(await fsp.readFile(workspace.latestNetlistPath, 'utf8'));
   const generated = generateStarterTestbench(netlist, moduleName, options);
   const destination = resolveInside(
-    await fsp.realpath(activeProject),
-    path.join(activeProject, generated.fileName),
+    await fsp.realpath(projectRoot),
+    path.join(projectRoot, generated.fileName),
   );
   try {
     await fsp.writeFile(destination, generated.content, { encoding: 'utf8', flag: 'wx' });
@@ -992,9 +950,9 @@ ipcMain.handle('testbench:generate', async (_event, moduleName, options = {}) =>
       );
     throw error;
   }
-  const manifest = await loadManifest(activeProject);
+  const manifest = await loadManifest(projectRoot);
   if (manifest)
-    await saveManifest(activeProject, {
+    await saveManifest(projectRoot, {
       ...manifest,
       files: [...manifest.files, generated.fileName],
     });

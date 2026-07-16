@@ -122,11 +122,11 @@ function sourceLocation(line, projectRoot) {
   };
 }
 
-function translateErrorLine(line, backend, projectRoot) {
+function translateErrorLine(line, backend, projectRoot, sourceCache = new Map()) {
   const location = sourceLocation(line, projectRoot);
   const sourceConstruct =
     location && /(?:syntax error|invalid module item)/i.test(line)
-      ? unsupportedConstructAt(projectRoot, location)
+      ? unsupportedConstructAt(projectRoot, location, sourceCache)
       : null;
   const errorPattern = sourceConstruct
     ? ERROR_PATTERNS.find((candidate) => candidate.id === 'unsupported-construct')
@@ -147,10 +147,12 @@ function translateErrorLine(line, backend, projectRoot) {
   return { id: pattern.id, backend, title: pattern.title, explanation, location, raw: line };
 }
 
-function unsupportedConstructAt(projectRoot, location) {
+function unsupportedConstructAt(projectRoot, location, sourceCache = new Map()) {
   try {
     const absolute = path.resolve(projectRoot, location.path);
-    const line = fs.readFileSync(absolute, 'utf8').split(/\r?\n/)[location.line - 1] || '';
+    if (!sourceCache.has(absolute))
+      sourceCache.set(absolute, fs.readFileSync(absolute, 'utf8').split(/\r?\n/));
+    const line = sourceCache.get(absolute)[location.line - 1] || '';
     return (
       UNSUPPORTED_SOURCE_CONSTRUCTS.find((construct) => construct.match.test(line))?.label || null
     );
@@ -165,6 +167,7 @@ function looksLikeUnmatchedError(line) {
 
 function createErrorTranslator({ backend, projectRoot }) {
   const buffers = { stdout: '', stderr: '' };
+  const sourceCache = new Map();
   const consume = (stream, text, final = false) => {
     const joined = buffers[stream] + text;
     const lines = joined.split(/\r?\n/);
@@ -175,7 +178,7 @@ function createErrorTranslator({ backend, projectRoot }) {
     const unmatched = [];
     for (const line of lines) {
       if (!line.trim()) continue;
-      const translated = translateErrorLine(line, backend, projectRoot);
+      const translated = translateErrorLine(line, backend, projectRoot, sourceCache);
       if (translated) translations.push(translated);
       else if (looksLikeUnmatchedError(line)) unmatched.push({ backend, stream, line });
     }

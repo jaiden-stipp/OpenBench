@@ -4,7 +4,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { parseVcd } from '../src/vcdParser.js';
+import { parseVcd } from '../src/vcdParser.ts';
 
 const require = createRequire(import.meta.url);
 const { runIcarusSimulation } = require('../electron/simulator.cjs');

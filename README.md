@@ -81,6 +81,10 @@ Learning Verilog should not begin with an afternoon of simulator installation, e
 
 OpenBench projects store their selected HDL files and folders in `.openbench.json`. Project settings such as the top module, simulation top, include paths, simulator backend, and optional custom toolchain location are stored in `.rtlbench.json` for compatibility with projects created before the rename.
 
+### Rename compatibility boundary
+
+New renderer code uses `window.openbench`, `openbench.*` preference keys, and OpenBench terminology. The preload exposes `window.rtlbench` only as a compatibility alias for extensions created before the rename. Preferences are migrated lazily by reading old `rtlbench.*` keys and writing only `openbench.*` keys. `.rtlbench.json` remains the settings filename so existing projects continue to open without a destructive migration; access to that filename is confined to the settings/project compatibility layer. Older `rtlbench:*` custom events are retained only where existing validation or extension integrations require them and should not be introduced in new code.
+
 The current focus is synthesizable Verilog/SystemVerilog and straightforward procedural testbenches. Language support is limited to the constructs supported by the selected Icarus/Verilator backend; OpenBench calls out relevant backend limitations at compile time. Full UVM and VHDL are not currently supported.
 
 ## Local and offline by design

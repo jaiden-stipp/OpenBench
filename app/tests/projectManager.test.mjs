@@ -12,6 +12,7 @@ const {
   createFolder,
   createProject,
   duplicateFile,
+  importFiles,
   loadManifest,
   projectData,
   removeEntry,
@@ -98,4 +99,20 @@ test('project paths cannot escape the project root', async () => {
   } finally {
     await fsp.rm(root, { recursive: true, force: true });
   }
+});
+
+test('file import rejects duplicate basenames without copying either file', async (context) => {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-duplicate-import-'));
+  context.after(() => fsp.rm(root, { recursive: true, force: true }));
+  const first = path.join(root, 'source-a');
+  const second = path.join(root, 'source-b');
+  const project = path.join(root, 'project');
+  await Promise.all([first, second, project].map((directory) => fsp.mkdir(directory)));
+  await fsp.writeFile(path.join(first, 'shared.sv'), 'module first; endmodule\n');
+  await fsp.writeFile(path.join(second, 'shared.sv'), 'module second; endmodule\n');
+  await assert.rejects(
+    () => importFiles(project, [path.join(first, 'shared.sv'), path.join(second, 'shared.sv')]),
+    /More than one selected file/,
+  );
+  await assert.rejects(() => fsp.access(path.join(project, 'shared.sv')));
 });

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -10,6 +12,7 @@ const {
   createErrorTranslator,
   formatTranslation,
   translateErrorLine,
+  unsupportedConstructAt,
 } = require('../electron/errorTranslator.cjs');
 
 test('keeps an explicit growing error pattern list', () => {
@@ -75,4 +78,16 @@ test('does not blame HDL include paths for a missing packaged shared library', (
   );
   assert.equal(translated.id, 'backend-runtime-dependency');
   assert.match(translated.title, /native runtime dependency/);
+});
+
+test('source construct lookup caches source lines for one translation run', (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openbench-translator-cache-'));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, 'top.sv'), 'covergroup coverage;\nendgroup\n');
+  const cache = new Map();
+  const location = { path: 'top.sv', line: 1, column: 1 };
+  assert.match(unsupportedConstructAt(root, location, cache), /coverage/);
+  fs.writeFileSync(path.join(root, 'top.sv'), 'module top; endmodule\n');
+  assert.match(unsupportedConstructAt(root, location, cache), /coverage/);
+  assert.equal(cache.size, 1);
 });

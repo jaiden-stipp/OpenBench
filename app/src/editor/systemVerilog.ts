@@ -99,7 +99,7 @@ export const configureSystemVerilog: BeforeMount = (monaco) => {
           [/"([^"\\]|\\.)*"/, 'string'],
           [/[{}()[\]]/, '@brackets'],
           [/[;,.]/, 'delimiter'],
-          [/[=><!~?:&|+\-*\/%^]+/, 'operator'],
+          [/[=><!~?:&|+\-*/%^]+/, 'operator'],
         ],
         comment: [
           [/[^/*]+/, 'comment'],

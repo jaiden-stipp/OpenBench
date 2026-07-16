@@ -1,4 +1,22 @@
-export type YosysNetlist = { creator?: string; modules: Record<string, any> };
+export type YosysBit = number | string;
+export type YosysCell = {
+  type: string;
+  hide_name?: number;
+  parameters?: Record<string, string>;
+  attributes?: Record<string, string>;
+  port_directions?: Record<string, string>;
+  connections?: Record<string, YosysBit[]>;
+};
+export type YosysModule = {
+  attributes?: Record<string, string>;
+  ports?: Record<string, { direction: string; bits: YosysBit[] }>;
+  cells?: Record<string, YosysCell>;
+  netnames?: Record<
+    string,
+    { hide_name?: number; bits?: YosysBit[]; attributes?: Record<string, string> }
+  >;
+};
+export type YosysNetlist = { creator?: string; modules: Record<string, YosysModule> };
 export type SchematicSymbol =
   | 'port'
   | 'register'

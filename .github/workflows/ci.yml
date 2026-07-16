@@ -41,6 +41,7 @@ jobs:
           tar -xzf "${archive}" -C ../.toolchain
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
+      - run: pnpm lint
       - run: pnpm build
       - run: pnpm test
         env:

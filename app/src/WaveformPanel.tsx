@@ -1,174 +1,12 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { VcdData, VcdSignal } from './vcdParser.js';
 import { formatVcdValue, valueAt } from './vcdParser.js';
-import { sampleVisibleChanges } from './waveformMath.js';
+import { drawWaveforms, HEADER_HEIGHT, ROW_HEIGHT } from './waveformRenderer';
+import { adjacentTransitionTime, hasChangeInRange } from './waveformMath.js';
 
 type Radix = 'bin' | 'hex' | 'dec';
 type SignalView = { key: string; radix: Radix; group: string; selected: boolean };
 type VisibleSignal = SignalView & { signal: VcdSignal };
-
-const ROW_HEIGHT = 30;
-const HEADER_HEIGHT = 30;
-
-function drawWaveforms(
-  canvas: HTMLCanvasElement,
-  signals: VisibleSignal[],
-  data: VcdData,
-  viewStart: number,
-  viewEnd: number,
-  cursor: number,
-  cursorB: number | null,
-  bookmarks: Array<{ time: number; label: string }>,
-  theme: 'dark' | 'light',
-  displayOptions: { highContrast: boolean; largeText: boolean },
-) {
-  const width = canvas.clientWidth;
-  const cssHeight = Math.max(
-    canvas.parentElement?.clientHeight || 0,
-    HEADER_HEIGHT + signals.length * ROW_HEIGHT,
-  );
-  const dpr = window.devicePixelRatio || 1;
-  if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(cssHeight * dpr)) {
-    canvas.width = Math.max(1, Math.floor(width * dpr));
-    canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
-    canvas.style.height = `${cssHeight}px`;
-  }
-  const context = canvas.getContext('2d');
-  if (!context) return;
-  context.setTransform(dpr, 0, 0, dpr, 0, 0);
-  context.clearRect(0, 0, width, cssHeight);
-  const light = theme === 'light';
-  context.fillStyle = light ? '#f7f9fc' : '#0a0f15';
-  context.fillRect(0, 0, width, cssHeight);
-  const span = Math.max(1, viewEnd - viewStart);
-  const xForTime = (time: number) => ((time - viewStart) / span) * width;
-
-  context.font = `${displayOptions.largeText ? 12 : 10}px 'Cascadia Code', Consolas, monospace`;
-  context.textBaseline = 'middle';
-  for (let grid = 0; grid <= 10; grid += 1) {
-    const x = (grid / 10) * width;
-    const time = Math.round(viewStart + (grid / 10) * span);
-    context.strokeStyle =
-      grid % 5 === 0
-        ? light
-          ? '#bdc9d8'
-          : displayOptions.highContrast
-            ? '#5f7895'
-            : '#263449'
-        : light
-          ? '#e1e7ef'
-          : displayOptions.highContrast
-            ? '#31465d'
-            : '#182331';
-    context.beginPath();
-    context.moveTo(x + 0.5, HEADER_HEIGHT);
-    context.lineTo(x + 0.5, cssHeight);
-    context.stroke();
-    context.fillStyle = light ? '#52657a' : '#7f93aa';
-    context.fillText(`${time}`, Math.min(width - 56, x + 4), 14);
-  }
-  context.fillStyle = light ? '#6b7c91' : '#52657a';
-  context.fillText(data.timescale, 5, 26);
-
-  signals.forEach(({ signal, radix }, row) => {
-    const top = HEADER_HEIGHT + row * ROW_HEIGHT;
-    const center = top + ROW_HEIGHT / 2;
-    context.fillStyle = row % 2 ? (light ? '#f1f5f9' : '#0d141d') : light ? '#fafcff' : '#0a1017';
-    context.fillRect(0, top, width, ROW_HEIGHT);
-    const changes = sampleVisibleChanges(
-      signal.changes,
-      viewStart,
-      viewEnd,
-      Math.max(1, Math.floor(width)),
-    );
-    if (!changes.length) return;
-    let index = 0;
-    context.strokeStyle =
-      signal.width === 1
-        ? light
-          ? '#087f68'
-          : displayOptions.highContrast
-            ? '#75f7d4'
-            : '#55d8b7'
-        : light
-          ? '#1769aa'
-          : displayOptions.highContrast
-            ? '#8fc4ff'
-            : '#62a8ff';
-    context.fillStyle = light ? '#155b96' : '#9bc8ff';
-    context.lineWidth = 1.25;
-    context.beginPath();
-    while (index < changes.length) {
-      const [time, rawValue] = changes[index];
-      if (time > viewEnd) break;
-      const nextTime = changes[index + 1]?.[0] ?? viewEnd;
-      const x = Math.max(0, xForTime(Math.max(time, viewStart)));
-      const nextX = Math.min(width, xForTime(Math.min(nextTime, viewEnd)));
-      if (signal.width === 1) {
-        const normalized = rawValue.toLowerCase();
-        const y = normalized === '1' ? top + 6 : normalized === '0' ? top + ROW_HEIGHT - 6 : center;
-        if (index > 0) context.lineTo(x, y);
-        else context.moveTo(x, y);
-        context.lineTo(nextX, y);
-      } else {
-        context.moveTo(x, center);
-        context.lineTo(nextX, center);
-        if (index > 0) {
-          context.moveTo(x - 3, center - 6);
-          context.lineTo(x + 3, center + 6);
-          context.moveTo(x - 3, center + 6);
-          context.lineTo(x + 3, center - 6);
-        }
-        if (nextX - x > 42) {
-          const label = formatVcdValue(rawValue, signal.width, radix);
-          context.fillText(label.length > 14 ? `${label.slice(0, 13)}…` : label, x + 6, center - 8);
-        }
-      }
-      index += 1;
-    }
-    context.stroke();
-  });
-
-  const cursorX = xForTime(cursor);
-  if (cursorX >= 0 && cursorX <= width) {
-    context.strokeStyle = '#ffcb6b';
-    context.lineWidth = 1;
-    context.beginPath();
-    context.moveTo(cursorX + 0.5, 0);
-    context.lineTo(cursorX + 0.5, cssHeight);
-    context.stroke();
-    context.fillStyle = '#ffcb6b';
-    context.fillRect(Math.min(cursorX + 4, width - 70), 3, 66, 18);
-    context.fillStyle = '#17120a';
-    context.fillText(`${Math.round(cursor)}`, Math.min(cursorX + 8, width - 66), 12);
-  }
-  if (cursorB !== null) {
-    const secondX = xForTime(cursorB);
-    if (secondX >= 0 && secondX <= width) {
-      context.strokeStyle = '#62a8ff';
-      context.lineWidth = 1;
-      context.beginPath();
-      context.moveTo(secondX + 0.5, 0);
-      context.lineTo(secondX + 0.5, cssHeight);
-      context.stroke();
-      context.fillStyle = '#62a8ff';
-      context.fillRect(Math.min(secondX + 4, width - 70), 3, 66, 18);
-      context.fillStyle = '#081522';
-      context.fillText(`B ${Math.round(cursorB)}`, Math.min(secondX + 8, width - 66), 12);
-    }
-  }
-  for (const bookmark of bookmarks) {
-    const x = xForTime(bookmark.time);
-    if (x < 0 || x > width) continue;
-    context.fillStyle = '#c792ea';
-    context.beginPath();
-    context.moveTo(x - 5, HEADER_HEIGHT);
-    context.lineTo(x + 5, HEADER_HEIGHT);
-    context.lineTo(x, HEADER_HEIGHT + 7);
-    context.closePath();
-    context.fill();
-  }
-}
 
 export default function WaveformPanel({
   data,
@@ -176,6 +14,7 @@ export default function WaveformPanel({
   runs = [],
   probeSignal,
   onSignalNavigate,
+  onLoadRun,
   theme = 'dark',
   displayOptions = { highContrast: false, largeText: false },
   breakpoints,
@@ -190,11 +29,15 @@ export default function WaveformPanel({
     id: string;
     name: string;
     createdAt: number;
-    data: VcdData;
+    data?: VcdData;
     files: Record<string, string>;
+    fileName?: string;
+    size?: number;
+    loading?: boolean;
   }>;
   probeSignal?: string | null;
   onSignalNavigate?: (signal: VcdSignal) => void;
+  onLoadRun?: (runId: string) => Promise<void>;
   theme?: 'dark' | 'light';
   displayOptions?: { highContrast: boolean; largeText: boolean };
   breakpoints: WaveBreakpoint[];
@@ -207,8 +50,8 @@ export default function WaveformPanel({
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState('All groups');
   const [groupName, setGroupName] = useState('');
-  const [viewStart, setViewStart] = useState(0);
-  const [viewEnd, setViewEnd] = useState(1);
+  const [viewport, setViewport] = useState({ start: 0, end: 1 });
+  const { start: viewStart, end: viewEnd } = viewport;
   const [cursor, setCursor] = useState(0);
   const [cursorB, setCursorB] = useState<number | null>(null);
   const [activeCursor, setActiveCursor] = useState<'A' | 'B'>('A');
@@ -220,7 +63,16 @@ export default function WaveformPanel({
   const [breakpointValue, setBreakpointValue] = useState('1');
   const [logicHelp, setLogicHelp] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const dragKey = useRef<string | null>(null);
+  const wheelFrame = useRef<number | null>(null);
+  const pendingViewport = useRef(viewport);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(480);
+
+  useEffect(() => {
+    pendingViewport.current = viewport;
+  }, [viewport]);
 
   useEffect(() => {
     if (!data) return;
@@ -243,8 +95,10 @@ export default function WaveformPanel({
     const fullEnd = Math.max(1, data.endTime);
     setSearch(initialSession?.search || '');
     setGroupFilter(initialSession?.groupFilter || 'All groups');
-    setViewStart(Math.max(0, Math.min(fullEnd - 1, initialSession?.viewStart ?? 0)));
-    setViewEnd(Math.max(1, Math.min(fullEnd, initialSession?.viewEnd ?? fullEnd)));
+    setViewport({
+      start: Math.max(0, Math.min(fullEnd - 1, initialSession?.viewStart ?? 0)),
+      end: Math.max(1, Math.min(fullEnd, initialSession?.viewEnd ?? fullEnd)),
+    });
     setCursor(Math.max(0, Math.min(fullEnd, initialSession?.cursor ?? 0)));
     setCursorB(
       initialSession?.cursorB == null
@@ -310,29 +164,34 @@ export default function WaveformPanel({
         const signal = signalMap.get(view.key);
         if (!signal || !signal.path.toLowerCase().includes(search.toLowerCase())) return [];
         if (groupFilter !== 'All groups' && view.group !== groupFilter) return [];
-        if (
-          changedOnly &&
-          !signal.changes.some((change) => change[0] >= viewStart && change[0] <= viewEnd)
-        )
-          return [];
+        if (changedOnly && !hasChangeInRange(signal.changes, viewStart, viewEnd)) return [];
         return [{ ...view, signal }];
       }),
     [changedOnly, groupFilter, search, signalMap, viewEnd, viewStart, views],
   );
+  const virtualRange = useMemo(() => {
+    const overscan = 5;
+    const first = Math.max(0, Math.floor((scrollTop - HEADER_HEIGHT) / ROW_HEIGHT) - overscan);
+    const last = Math.min(
+      visibleSignals.length,
+      Math.ceil((scrollTop + viewportHeight - HEADER_HEIGHT) / ROW_HEIGHT) + overscan,
+    );
+    return { first, last, signals: visibleSignals.slice(first, last) };
+  }, [scrollTop, viewportHeight, visibleSignals]);
 
   const compareRun = runs.find((run) => run.id === compareRunId);
   const compareByPath = useMemo(
-    () => new Map(compareRun?.data.signals.map((signal) => [signal.path, signal]) || []),
+    () => new Map(compareRun?.data?.signals.map((signal) => [signal.path, signal]) || []),
     [compareRun],
   );
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !data) return;
-    const redraw = () =>
-      drawWaveforms(
+    let frame = requestAnimationFrame(() =>
+      drawWaveforms({
         canvas,
-        visibleSignals,
+        signals: virtualRange.signals,
         data,
         viewStart,
         viewEnd,
@@ -341,12 +200,57 @@ export default function WaveformPanel({
         bookmarks,
         theme,
         displayOptions,
+        viewportHeight,
+        rowOffset: virtualRange.first,
+      }),
+    );
+    const redraw = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() =>
+        drawWaveforms({
+          canvas,
+          signals: virtualRange.signals,
+          data,
+          viewStart,
+          viewEnd,
+          cursor,
+          cursorB,
+          bookmarks,
+          theme,
+          displayOptions,
+          viewportHeight,
+          rowOffset: virtualRange.first,
+        }),
       );
-    redraw();
+    };
     const observer = new ResizeObserver(redraw);
     if (canvas.parentElement) observer.observe(canvas.parentElement);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [
+    bookmarks,
+    cursor,
+    cursorB,
+    data,
+    displayOptions,
+    theme,
+    viewEnd,
+    viewStart,
+    viewportHeight,
+    virtualRange,
+  ]);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const update = () => setViewportHeight(grid.clientHeight);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(grid);
     return () => observer.disconnect();
-  }, [bookmarks, cursor, cursorB, data, displayOptions, theme, viewEnd, viewStart, visibleSignals]);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -354,25 +258,35 @@ export default function WaveformPanel({
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const fullEnd = Math.max(1, data.endTime);
-      const span = Math.max(1, viewEnd - viewStart);
+      const current = pendingViewport.current;
+      const span = Math.max(1, current.end - current.start);
+      let next;
       if (event.shiftKey) {
         const delta = span * Math.sign(event.deltaY) * 0.12;
-        const start = Math.max(0, Math.min(fullEnd - span, viewStart + delta));
-        setViewStart(start);
-        setViewEnd(start + span);
-        return;
+        const start = Math.max(0, Math.min(fullEnd - span, current.start + delta));
+        next = { start, end: start + span };
+      } else {
+        const rect = canvas.getBoundingClientRect();
+        const anchor = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+        const nextSpan = Math.max(1, Math.min(fullEnd, span * Math.exp(event.deltaY * 0.0015)));
+        let start = current.start + span * anchor - nextSpan * anchor;
+        start = Math.max(0, Math.min(fullEnd - nextSpan, start));
+        next = { start, end: start + nextSpan };
       }
-      const rect = canvas.getBoundingClientRect();
-      const anchor = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-      const nextSpan = Math.max(1, Math.min(fullEnd, span * Math.exp(event.deltaY * 0.0015)));
-      let start = viewStart + span * anchor - nextSpan * anchor;
-      start = Math.max(0, Math.min(fullEnd - nextSpan, start));
-      setViewStart(start);
-      setViewEnd(start + nextSpan);
+      pendingViewport.current = next;
+      if (wheelFrame.current === null)
+        wheelFrame.current = requestAnimationFrame(() => {
+          wheelFrame.current = null;
+          setViewport(pendingViewport.current);
+        });
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
-    return () => canvas.removeEventListener('wheel', onWheel);
-  }, [data, viewStart, viewEnd]);
+    return () => {
+      canvas.removeEventListener('wheel', onWheel);
+      if (wheelFrame.current !== null) cancelAnimationFrame(wheelFrame.current);
+      wheelFrame.current = null;
+    };
+  }, [data]);
 
   useEffect(() => {
     const onZoom = (event: Event) => {
@@ -383,8 +297,7 @@ export default function WaveformPanel({
       const nextSpan = Math.max(1, Math.min(fullEnd, span * factor));
       const center = (viewStart + viewEnd) / 2;
       const start = Math.max(0, Math.min(fullEnd - nextSpan, center - nextSpan / 2));
-      setViewStart(start);
-      setViewEnd(start + nextSpan);
+      setViewport({ start, end: start + nextSpan });
     };
     window.addEventListener('rtlbench:wave-zoom', onZoom);
     return () => window.removeEventListener('rtlbench:wave-zoom', onZoom);
@@ -405,8 +318,7 @@ export default function WaveformPanel({
     const nextSpan = Math.max(1, Math.min(fullEnd, span * factor));
     const center = (viewStart + viewEnd) / 2;
     const start = Math.max(0, Math.min(fullEnd - nextSpan, center - nextSpan / 2));
-    setViewStart(start);
-    setViewEnd(start + nextSpan);
+    setViewport({ start, end: start + nextSpan });
   };
 
   const reorder = (targetKey: string) => {
@@ -437,11 +349,7 @@ export default function WaveformPanel({
     const selected = views.find((view) => view.selected);
     const signal = selected ? signalMap.get(selected.key) : visibleSignals[0]?.signal;
     if (!signal) return;
-    const times = signal.changes.map((change) => change[0]);
-    const next =
-      direction > 0
-        ? times.find((time) => time > cursor)
-        : [...times].reverse().find((time) => time < cursor);
+    const next = adjacentTransitionTime(signal.changes, cursor, direction);
     if (next !== undefined) setCursor(next);
   };
   const delta = cursorB === null ? null : Math.abs(cursorB - cursor);
@@ -494,8 +402,7 @@ export default function WaveformPanel({
         <button onClick={() => zoom(2)}>Zoom −</button>
         <button
           onClick={() => {
-            setViewStart(0);
-            setViewEnd(Math.max(1, data.endTime));
+            setViewport({ start: 0, end: Math.max(1, data.endTime) });
           }}
         >
           Full
@@ -594,23 +501,36 @@ export default function WaveformPanel({
         <select
           aria-label="Compare with earlier run"
           value={compareRunId}
-          onChange={(event) => setCompareRunId(event.target.value)}
+          onChange={(event) => {
+            const runId = event.target.value;
+            setCompareRunId(runId);
+            const run = runs.find((item) => item.id === runId);
+            if (runId && run && !run.data && !run.loading) void onLoadRun?.(runId);
+          }}
         >
           <option value="">Compare run…</option>
-          {runs.slice(1).map((run) => (
-            <option key={run.id} value={run.id}>
-              {run.name} · {new Date(run.createdAt).toLocaleTimeString()}
-            </option>
-          ))}
+          {runs
+            .filter((run) => run.data !== data)
+            .map((run) => (
+              <option key={run.id} value={run.id}>
+                {run.loading ? 'Loading… ' : ''}
+                {run.name} · {new Date(run.createdAt).toLocaleTimeString()}
+              </option>
+            ))}
         </select>
       </div>
-      <div className="wave-grid">
+      <div
+        className="wave-grid"
+        ref={gridRef}
+        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+      >
         <div className="signal-list">
           <div className="signal-header">
             <span>Signal</span>
             <span>Value @ {Math.round(cursor)}</span>
           </div>
-          {visibleSignals.map((view) => {
+          <div style={{ height: virtualRange.first * ROW_HEIGHT }} aria-hidden="true" />
+          {virtualRange.signals.map((view) => {
             const rawValue = valueAt(view.signal.changes, cursor);
             const comparisonSignal = compareByPath.get(view.signal.path);
             const comparisonValue = comparisonSignal
@@ -627,7 +547,7 @@ export default function WaveformPanel({
             const breakpoint = breakpoints.find((item) => item.signalPath === view.signal.path);
             const hasUnknown = /[xz]/i.test(rawValue);
             return (
-              <Fragment key={view.key}>
+              <div className="virtual-signal-slot" key={view.key}>
                 <div
                   className={`signal-row ${probed ? 'probed' : ''}`}
                   draggable
@@ -774,14 +694,21 @@ export default function WaveformPanel({
                     </small>
                   </div>
                 )}
-              </Fragment>
+              </div>
             );
           })}
+          <div
+            style={{ height: (visibleSignals.length - virtualRange.last) * ROW_HEIGHT }}
+            aria-hidden="true"
+          />
           {!visibleSignals.length && (
             <div className="signal-none">No signals match this filter.</div>
           )}
         </div>
-        <div className="wave-canvas-scroll">
+        <div
+          className="wave-canvas-scroll"
+          style={{ height: HEADER_HEIGHT + visibleSignals.length * ROW_HEIGHT }}
+        >
           <canvas
             ref={canvasRef}
             onClick={(event) => {

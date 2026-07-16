@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { YosysNetlist } from './netlistGraph.js';
+import type { ProjectAnalysis } from './projectInsights.js';
 
 type Insight = { severity: string; title: string; detail: string };
 
@@ -15,8 +16,8 @@ function Hierarchy({
   const modules = netlist.modules || {};
   const render = (name: string, depth: number, seen: Set<string>): React.ReactNode => {
     if (!modules[name] || depth > 8) return null;
-    const instances = Object.entries(modules[name].cells || {}).filter(
-      ([, cell]: any) => modules[cell.type],
+    const instances = Object.entries(modules[name].cells || {}).filter(([, cell]) =>
+      Boolean(modules[cell.type]),
     );
     return (
       <li key={`${name}-${depth}`}>
@@ -29,7 +30,7 @@ function Hierarchy({
         </button>
         {instances.length > 0 && (
           <ul>
-            {instances.map(([instance, cell]: any) => (
+            {instances.map(([instance, cell]) => (
               <li key={instance}>
                 <span>{instance.replace(/^\\/, '')}</span>
                 {seen.has(cell.type) ? (
@@ -64,7 +65,7 @@ export default function GuidanceCenter({
 }: {
   project: ProjectData;
   settings: ProjectSettings;
-  insights: any;
+  insights: ProjectAnalysis;
   waveformInsights: Insight[];
   netlist: YosysNetlist | null;
   rtlTop: string | null;
@@ -205,7 +206,7 @@ export default function GuidanceCenter({
                   disabled={checking}
                   onClick={async () => {
                     setChecking(true);
-                    setToolHealth(await window.rtlbench.runToolchainSelfTest());
+                    setToolHealth(await window.openbench.runToolchainSelfTest());
                     setChecking(false);
                   }}
                 >
@@ -332,7 +333,7 @@ export default function GuidanceCenter({
               <button
                 className="export-bundle"
                 onClick={async () => {
-                  const saved = await window.rtlbench.exportSupportBundle({
+                  const saved = await window.openbench.exportSupportBundle({
                     consoleText,
                     includeSource,
                   });

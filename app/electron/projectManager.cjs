@@ -241,9 +241,14 @@ async function importFiles(root, sourcePaths) {
     source,
     destination: resolveInside(canonicalRoot, path.join(canonicalRoot, path.basename(source))),
   }));
+  const seenNames = new Set();
   const duplicateNames = candidates
     .map((item) => path.basename(item.destination).toLowerCase())
-    .filter((name, index, values) => values.indexOf(name) !== index);
+    .filter((name) => {
+      if (seenNames.has(name)) return true;
+      seenNames.add(name);
+      return false;
+    });
   if (duplicateNames.length)
     throw new Error(
       `More than one selected file is named ${duplicateNames[0]}. Rename one before importing.`,

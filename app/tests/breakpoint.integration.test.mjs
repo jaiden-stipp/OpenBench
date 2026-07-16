@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { compileBreakpointMonitor, runIcarusSimulation } = require('../electron/simulator.cjs');
-const { parseVcd } = await import('../src/vcdParser.js');
+const { parseVcd } = await import('../src/vcdParser.ts');
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 test('rejects injected breakpoint hierarchy or values', () => {

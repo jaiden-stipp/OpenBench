@@ -22,8 +22,11 @@ export interface SimulationRun {
   id: string;
   name: string;
   createdAt: number;
-  data: VcdData;
+  data?: VcdData;
   files: Record<string, string>;
+  fileName?: string;
+  size?: number;
+  loading?: boolean;
 }
 
 export interface PromptState {

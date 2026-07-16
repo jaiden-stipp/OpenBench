@@ -37,6 +37,14 @@ Put the native suite at `.toolchain/oss-cad-suite`, or set `OPENBENCH_TOOLCHAIN_
 5. Run `pnpm format:check`, `pnpm build`, and `pnpm test` from `app`.
 6. Update user documentation when workflows or supported behavior change.
 
+## Code organization
+
+- Treat roughly 100 lines as a review threshold for a function or React component.
+- When a function approaches that size, extract behavior by responsibility into named helpers, hooks, or child components. Avoid arbitrary line-count splits that hide shared state or create unclear parameter lists.
+- Keep `App.tsx` as integration wiring. Project lifecycle, backend events, editor behavior, persistence, and presentation belong in focused modules under `src/hooks` and `src/components`.
+- Prefer descriptive domain names over abbreviations, and keep raw backend interaction separate from UI presentation.
+- Use `window.openbench` and `openbench.*` names in new code. Keep legacy `rtlbench` aliases inside the preload or compatibility modules rather than spreading them into new features.
+
 The core product goal is to reduce the distance between having an HDL idea and seeing it work. Commercial-EDA complexity that does not improve that beginner workflow may be out of scope.
 
 By contributing, you agree that your contribution is licensed under GPL-3.0-only.

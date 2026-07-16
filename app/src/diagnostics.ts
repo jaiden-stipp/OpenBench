@@ -1,4 +1,6 @@
-export function parseDiagnostic(line) {
+export type Diagnostic = { path: string; line: number; column: number; message: string };
+
+export function parseDiagnostic(line: string): Diagnostic | null {
   const match = line.match(/^(.+?\.(?:sv|svh|v|vh)):(\d+)(?::(\d+))?:\s*(.*)$/i);
   if (!match) return null;
   return {

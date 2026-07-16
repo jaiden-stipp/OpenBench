@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseDiagnostic } from '../src/diagnostics.js';
+import { parseDiagnostic } from '../src/diagnostics.ts';
 
 test('parses Icarus file and line diagnostics', () => {
   assert.deepEqual(parseDiagnostic('rtl/top.sv:17: syntax error'), {

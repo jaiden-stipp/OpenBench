@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatVcdValue, parseVcd, valueAt } from '../src/vcdParser.js';
+import { formatVcdValue, parseVcd, valueAt } from '../src/vcdParser.ts';
 
 const fixture = `$timescale 1 ns $end
 $scope module tb $end

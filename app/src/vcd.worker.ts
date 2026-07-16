@@ -20,6 +20,11 @@ self.onmessage = (
       createdAt: event.data.createdAt,
     });
   } catch (error) {
-    self.postMessage({ ok: false, error: error instanceof Error ? error.message : String(error) });
+    self.postMessage({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      purpose: event.data.purpose,
+      id: event.data.id,
+    });
   }
 };

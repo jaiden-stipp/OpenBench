@@ -21,6 +21,18 @@ type Layout = {
   edges: LayoutEdge[];
   graph: ModuleGraph;
 };
+type ElkPoint = { x: number; y: number };
+type ElkPlacedNode = { id: string; x?: number; y?: number };
+type ElkPlacedEdge = {
+  id: string;
+  sections?: Array<{ startPoint: ElkPoint; bendPoints?: ElkPoint[]; endPoint: ElkPoint }>;
+};
+type ElkLayoutResult = {
+  width?: number;
+  height?: number;
+  children?: ElkPlacedNode[];
+  edges?: ElkPlacedEdge[];
+};
 
 function cleanNet(value: string | null) {
   return (
@@ -405,16 +417,18 @@ export default function SchematicPanel({
     };
     void elk
       .layout(input)
-      .then((result: any) => {
+      .then((result: ElkLayoutResult) => {
         if (cancelled) return;
-        const nodeLayouts = new Map((result.children || []).map((node: any) => [node.id, node]));
-        const edgeLayouts = new Map((result.edges || []).map((edge: any) => [edge.id, edge]));
+        const nodeLayouts = new Map(
+          (result.children || []).map((node) => [node.id, node] as const),
+        );
+        const edgeLayouts = new Map((result.edges || []).map((edge) => [edge.id, edge] as const));
         setLayout({
           width: Math.max(400, result.width || 400),
           height: Math.max(260, result.height || 260),
           graph,
           nodes: graph.nodes.map((node) => {
-            const placed: any = nodeLayouts.get(node.id) || {};
+            const placed = nodeLayouts.get(node.id) || { id: node.id };
             const metric = metrics.get(node.id)!;
             return {
               ...node,
@@ -426,7 +440,7 @@ export default function SchematicPanel({
             };
           }),
           edges: graph.edges.map((edge) => {
-            const placed: any = edgeLayouts.get(edge.id);
+            const placed = edgeLayouts.get(edge.id);
             const section = placed?.sections?.[0];
             return {
               ...edge,

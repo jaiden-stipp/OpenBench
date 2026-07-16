@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('rtlbench', {
+const openBenchApi = {
   selectProjectFolder: () => ipcRenderer.invoke('project:selectFolder'),
   activateProject: (selection) => ipcRenderer.invoke('project:activate', selection),
   chooseNewProjectParent: () => ipcRenderer.invoke('project:chooseNewParent'),
@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('rtlbench', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   readFile: (path) => ipcRenderer.invoke('file:read', path),
+  readProjectSources: () => ipcRenderer.invoke('project:readSources'),
   writeFile: (path, content) => ipcRenderer.invoke('file:write', path, content),
   loadSession: () => ipcRenderer.invoke('session:load'),
   saveSession: (value) => ipcRenderer.invoke('session:save', value),
@@ -36,6 +37,7 @@ contextBridge.exposeInMainWorld('rtlbench', {
   runSimulation: (breakpoints) => ipcRenderer.invoke('simulation:run', breakpoints),
   readLatestVcd: () => ipcRenderer.invoke('waveform:readLatest'),
   listWaveformRuns: () => ipcRenderer.invoke('waveform:listRuns'),
+  readWaveformRun: (runId) => ipcRenderer.invoke('waveform:readRun', runId),
   runRtl: () => ipcRenderer.invoke('rtl:run'),
   readLatestNetlist: () => ipcRenderer.invoke('rtl:readLatest'),
   generateTestbench: (moduleName, options) =>
@@ -55,4 +57,8 @@ contextBridge.exposeInMainWorld('rtlbench', {
     ipcRenderer.on('rtl:event', handler);
     return () => ipcRenderer.removeListener('rtl:event', handler);
   },
-});
+};
+
+contextBridge.exposeInMainWorld('openbench', openBenchApi);
+// Compatibility for pre-rename renderer extensions. New code must use window.openbench.
+contextBridge.exposeInMainWorld('rtlbench', openBenchApi);
