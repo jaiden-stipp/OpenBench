@@ -4,6 +4,7 @@ type LoadProject = (project: ProjectData, resetWorkspace?: boolean) => Promise<v
 type OpenPath = (path: string, line?: number, column?: number) => Promise<void>;
 
 type ProjectPickerOptions = {
+  activeProjectRoot?: string;
   importSelection: ProjectSelection | null;
   loadProject: LoadProject;
   newProjectParent: string | null;
@@ -23,15 +24,29 @@ export function useProjectPickerActions(options: ProjectPickerOptions) {
     }
   };
 
-  const activateSelection = async (name: string, files: string[]) => {
+  const activateSelection = async (
+    name: string,
+    files: string[],
+    topModule: string,
+    simulationTop: string,
+  ) => {
     if (!options.importSelection) return;
     try {
+      if (
+        options.importSelection.existingProject &&
+        options.activeProjectRoot === options.importSelection.root
+      ) {
+        options.setImportSelection(null);
+        options.setStatus('This project is already open');
+        return;
+      }
       const next = await window.openbench.activateProject({
         root: options.importSelection.root,
         name,
         files,
-        suggestedTop: options.importSelection.suggestedTop,
-        suggestedSimulationTop: options.importSelection.suggestedSimulationTop,
+        topModule,
+        simulationTop,
+        existingProject: options.importSelection.existingProject,
       });
       options.setImportSelection(null);
       await options.loadProject(next);
@@ -49,13 +64,14 @@ export function useProjectPickerActions(options: ProjectPickerOptions) {
     }
   };
 
-  const createNewProject = async (name: string, withStarter: boolean) => {
+  const createNewProject = async (name: string, withStarter: boolean, topModule: string) => {
     if (!options.newProjectParent) return;
     try {
       const next = await window.openbench.createProject({
         parent: options.newProjectParent,
         name,
         withStarter,
+        topModule,
       });
       options.setNewProjectParent(null);
       await options.loadProject(next);
@@ -94,7 +110,7 @@ export function useLearningProjectActions(options: LearningProjectOptions) {
       const next = await window.openbench.openExampleProject(lessonId);
       await options.loadProject(next);
       await options.openPath('getting_started_counter.sv');
-      options.setStatus('Example ready: press Run Simulation');
+      options.setStatus(keepTutorial ? 'Example ready: press Run Compile' : 'Example ready');
     } catch (error) {
       options.setStatus(errorMessage(error));
       if (keepTutorial) throw error;

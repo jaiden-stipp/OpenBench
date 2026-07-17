@@ -52,6 +52,25 @@ test('new starter project is immediately runnable and has project settings', asy
   }
 });
 
+test('new starter project honors the design top chosen in the creation dialog', async () => {
+  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-custom-top-'));
+  try {
+    const project = await createProject(parent, 'Course CPU', true, 'cpu_core');
+    assert.deepEqual(new Set(project.files), new Set(['cpu_core.sv', 'cpu_core_tb.sv']));
+    const settings = JSON.parse(
+      await fsp.readFile(path.join(project.root, '.rtlbench.json'), 'utf8'),
+    );
+    assert.equal(settings.topModule, 'cpu_core');
+    assert.equal(settings.simulationTop, 'cpu_core_tb');
+    assert.match(
+      await fsp.readFile(path.join(project.root, 'cpu_core.sv'), 'utf8'),
+      /module cpu_core/,
+    );
+  } finally {
+    await fsp.rm(parent, { recursive: true, force: true });
+  }
+});
+
 test('create, rename, duplicate, and remove keep the manifest synchronized', async () => {
   const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-files-'));
   try {

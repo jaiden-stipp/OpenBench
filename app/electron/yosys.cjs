@@ -17,6 +17,25 @@ function runProcess(executable, args, options, onOutput) {
   });
 }
 
+function normalizeNetlistSources(value, projectRoot, runDirectory) {
+  if (!value || typeof value !== 'object') return value;
+  if (typeof value.attributes?.src === 'string')
+    value.attributes.src = value.attributes.src
+      .split('|')
+      .map((location) => {
+        const match = location.match(/^(.*):(\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?)$/);
+        if (!match) return location;
+        const absolute = path.resolve(runDirectory, match[1]);
+        const relative = path.relative(projectRoot, absolute);
+        if (relative.startsWith('..') || path.isAbsolute(relative)) return location;
+        return `${relative.replaceAll('\\', '/')}:${match[2]}`;
+      })
+      .join('|');
+  for (const child of Object.values(value))
+    normalizeNetlistSources(child, projectRoot, runDirectory);
+  return value;
+}
+
 async function runYosysElaboration({
   projectRoot,
   files,
@@ -27,6 +46,8 @@ async function runYosysElaboration({
 }) {
   if (!files.length)
     throw new Error('No synthesizable Verilog/SystemVerilog source files were selected.');
+  if (topModule && !/^[A-Za-z_$][\w$]*$/.test(topModule))
+    throw new Error(`Invalid RTL top module name: ${topModule}`);
   const mount = await mountSuite(suiteRoot);
   try {
     const runId = `yosys-${new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-')}`;
@@ -45,17 +66,32 @@ async function runYosysElaboration({
       stagedIncludes.push(relativeTarget.replaceAll('\\', '/'));
     }
     const absoluteFiles = files.map((file) => path.resolve(projectRoot, file));
+    const sourceContents = await Promise.all(
+      absoluteFiles.map((file) => fsp.readFile(file, 'utf8')),
+    );
+    const needsSlang = sourceContents.some((content) =>
+      /\bpackage\s+[A-Za-z_$][\w$]*\s*;/.test(content),
+    );
+    const slangPlugin = path.join(suiteRoot, 'share', 'yosys', 'plugins', 'slang.so');
+    if (needsSlang && !(await fsp.stat(slangPlugin).catch(() => null)))
+      throw new Error(
+        'This design uses SystemVerilog packages, but the bundled Yosys slang frontend is unavailable.',
+      );
     const hierarchy = topModule
       ? `hierarchy -check -top ${topModule}`
       : 'hierarchy -check -auto-top';
-    const script = [
-      ...stagedIncludes.map((includePath) => `verilog_defaults -add -I${includePath}`),
-      `read_verilog -sv ${absoluteFiles.map(quoteYosys).join(' ')}`,
-      hierarchy,
-      'proc',
-      'write_json netlist.json',
-      '',
-    ].join('\n');
+    const frontendCommands = needsSlang
+      ? [
+          'plugin -i slang',
+          `read_slang --single-unit --ignore-timing --ignore-initial ${topModule ? `--top ${topModule} ` : ''}${stagedIncludes.map((includePath) => `-I${includePath}`).join(' ')} ${absoluteFiles.map((file) => path.relative(runDirectory, file).replaceAll('\\', '/')).join(' ')}`,
+        ]
+      : [
+          ...stagedIncludes.map((includePath) => `verilog_defaults -add -I${includePath}`),
+          `read_verilog -sv ${absoluteFiles.map(quoteYosys).join(' ')}`,
+        ];
+    const script = [...frontendCommands, hierarchy, 'proc', 'write_json netlist.json', ''].join(
+      '\n',
+    );
     await fsp.writeFile(scriptPath, script, 'utf8');
     const yosys = path.join(
       mount.root,
@@ -75,7 +111,12 @@ async function runYosysElaboration({
       onOutput,
     );
     if (code !== 0) throw new Error(`Yosys elaboration failed with exit code ${code}.`);
-    const netlist = JSON.parse(await fsp.readFile(jsonPath, 'utf8'));
+    const netlist = normalizeNetlistSources(
+      JSON.parse(await fsp.readFile(jsonPath, 'utf8')),
+      projectRoot,
+      runDirectory,
+    );
+    await fsp.writeFile(jsonPath, JSON.stringify(netlist), 'utf8');
     const modules = Object.entries(netlist.modules || {});
     const top =
       modules.find(
@@ -88,4 +129,4 @@ async function runYosysElaboration({
   }
 }
 
-module.exports = { quoteYosys, runYosysElaboration };
+module.exports = { normalizeNetlistSources, quoteYosys, runYosysElaboration };

@@ -7,6 +7,7 @@ node_modules/
 # Build and package output
 app/dist/
 app/release/
+release-staging/
 outputs/
 coverage/
 

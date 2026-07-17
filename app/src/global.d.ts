@@ -18,8 +18,10 @@ type ProjectSelection = {
   candidates: string[];
   selected: string[];
   roles?: Record<string, 'design' | 'testbench' | 'include'>;
+  modules?: Array<{ name: string; file: string }>;
   suggestedTop?: string;
   suggestedSimulationTop?: string;
+  existingProject?: boolean;
 };
 type ProjectSettings = {
   topModule: string;
@@ -79,14 +81,16 @@ interface OpenBenchApi {
     root: string;
     name: string;
     files: string[];
-    suggestedTop?: string;
-    suggestedSimulationTop?: string;
+    topModule?: string;
+    simulationTop?: string;
+    existingProject?: boolean;
   }): Promise<ProjectData>;
   chooseNewProjectParent(): Promise<string | null>;
   createProject(options: {
     parent: string;
     name: string;
     withStarter: boolean;
+    topModule?: string;
   }): Promise<ProjectData>;
   getActiveProject(): Promise<ProjectData | null>;
   restoreProject(root: string): Promise<ProjectData | null>;

@@ -3,35 +3,35 @@ import openBenchLogo from './assets/openbench-logo.png';
 
 const TASKS = [
   {
-    eyebrow: '1 OF 5 · CHECK',
+    eyebrow: 'STEP 1 OF 5',
     title: 'Compile the example',
-    text: 'Click the highlighted Run Compile button. OpenBench will check the real source with the selected backend. A successful result appears in the console below.',
+    text: 'Click Run Compile. A short result appears in the console below.',
     hint: 'This catches syntax and language-support problems before simulation.',
     target: '[data-testid="run-compile"]',
   },
   {
-    eyebrow: '2 OF 5 · RUN',
-    title: 'Create a real waveform',
-    text: 'Click Run Simulation. OpenBench compiles and runs the testbench, then opens the VCD waveform automatically.',
-    hint: 'The displayed trace comes from Icarus or Verilator—not sample data.',
+    eyebrow: 'STEP 2 OF 5',
+    title: 'Run the simulation',
+    text: 'Click Run Simulation. OpenBench runs the testbench and opens its waveform.',
+    hint: 'The waveform uses the bundled simulator selected in project settings.',
     target: '[data-testid="run-simulation"]',
   },
   {
-    eyebrow: '3 OF 5 · INSPECT',
+    eyebrow: 'STEP 3 OF 5',
     title: 'Place the time cursor',
     text: 'Click anywhere on the waveform trace. The yellow cursor lets you read every signal value at the same moment.',
     hint: 'Use the wheel to zoom. Shift + wheel pans across time.',
     target: '.wave-canvas-scroll canvas',
   },
   {
-    eyebrow: '4 OF 5 · UNDERSTAND',
+    eyebrow: 'STEP 4 OF 5',
     title: 'Build the RTL schematic',
-    text: 'Click RTL Analysis. Yosys elaborates the source into registers, muxes, gates, and connections you can explore.',
+    text: 'Click RTL Analysis to view registers, muxes, gates, modules, and their connections.',
     hint: 'This is the design hardware structure, not the testbench waveform.',
     target: '[data-testid="run-rtl"]',
   },
   {
-    eyebrow: '5 OF 5 · CROSS-PROBE',
+    eyebrow: 'STEP 5 OF 5',
     title: 'Jump back to the source',
     text: 'Click any block in the schematic. OpenBench will open the Verilog line that produced it.',
     hint: 'Waveform signals and schematic connections can also take you back to source.',
@@ -112,17 +112,16 @@ export default function OnboardingDialog({
           </div>
           <div className="onboarding-content">
             <div className="onboarding-top">
-              <small>INTERACTIVE QUICK START</small>
+              <small>QUICK START</small>
               <button onClick={onSkip}>Skip tutorial</button>
             </div>
             <h1 id="onboarding-title">Learn OpenBench by using it</h1>
             <p>
-              This five-task guide opens a safe example and waits while you perform the real
-              workflow. You will compile Verilog, run a simulation, inspect its waveform, generate
-              an RTL schematic, and jump back to source.
+              Practice the complete workflow in an example project. OpenBench waits for each action
+              before continuing.
             </p>
             <ul>
-              <li>Uses genuine bundled backend tools</li>
+              <li>No toolchain setup required</li>
               <li>Your own projects are not changed</li>
               <li>Takes about two minutes</li>
             </ul>
@@ -163,11 +162,8 @@ export default function OnboardingDialog({
         <div className="onboarding-top">
           <small>TUTORIAL COMPLETE</small>
         </div>
-        <h2>You completed the real workflow</h2>
-        <p>
-          You compiled HDL, produced and inspected a genuine waveform, elaborated RTL, and
-          cross-probed back to Verilog.
-        </p>
+        <h2>You completed the workflow</h2>
+        <p>You compiled HDL, inspected a waveform, elaborated RTL, and returned to the source.</p>
         <div className="tutorial-summary">
           <span>✓ Compile</span>
           <span>✓ Simulate</span>

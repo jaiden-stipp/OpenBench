@@ -30,12 +30,16 @@ const NON_MODULE_KEYWORDS = new Set([
   'module',
   'output',
   'parameter',
+  'package',
   'program',
+  'real',
   'reg',
   'repeat',
   'return',
   'task',
   'typedef',
+  'integer',
+  'string',
   'wait',
   'while',
   'wire',
@@ -73,9 +77,7 @@ const BUILTIN_PRIMITIVES = new Set([
 export function analyzeHdlFiles(files) {
   const roles = Object.fromEntries(files.map((file) => [file.path, classifyFile(file)]));
   const parsed = files.map((file) => ({ ...file, ...parseHdlStructure(file.content) }));
-  const modules = parsed.flatMap((file) =>
-    file.modules.map((name) => ({ name, file: file.path })),
-  );
+  const modules = parsed.flatMap((file) => file.modules.map((name) => ({ name, file: file.path })));
   const moduleOwners = new Map();
   for (const module of modules) {
     const owners = moduleOwners.get(module.name) || [];
@@ -89,14 +91,10 @@ export function analyzeHdlFiles(files) {
     file.instantiations.map((item) => ({ ...item, file: file.path })),
   );
   const designInstantiated = new Set(
-    instantiations
-      .filter((item) => roles[item.file] === 'design')
-      .map((item) => item.module),
+    instantiations.filter((item) => roles[item.file] === 'design').map((item) => item.module),
   );
   const testbenchInstantiated = new Set(
-    instantiations
-      .filter((item) => roles[item.file] === 'testbench')
-      .map((item) => item.module),
+    instantiations.filter((item) => roles[item.file] === 'testbench').map((item) => item.module),
   );
   const directChildren = new Map();
   for (const item of instantiations.filter((entry) => roles[entry.file] === 'design'))
@@ -150,7 +148,7 @@ export function parseHdlStructure(content) {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (token === 'module' && isIdentifier(tokens[index + 1])) modules.push(tokens[index + 1]);
-    if (!isPossibleModuleType(token)) continue;
+    if (!isPossibleModuleType(token) || ['.', ':', '=', "'"].includes(tokens[index - 1])) continue;
     let cursor = index + 1;
     if (tokens[cursor] === '#') {
       if (tokens[cursor + 1] !== '(') continue;
@@ -235,7 +233,7 @@ function tokenizeHdl(content) {
       index = end;
       continue;
     }
-    if ('#(),;'.includes(current)) tokens.push(current);
+    if (`#(),;.:='`.includes(current)) tokens.push(current);
     index += 1;
   }
   return tokens;

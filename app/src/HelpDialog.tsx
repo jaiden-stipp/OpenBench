@@ -23,7 +23,7 @@ export default function HelpDialog({
       >
         <div className="settings-heading">
           <div>
-            <small>BEGINNER GUIDE</small>
+            <small>HELP</small>
             <h2 id="help-title">What OpenBench supports</h2>
           </div>
           <button aria-label="Close help" onClick={onClose}>
@@ -31,9 +31,8 @@ export default function HelpDialog({
           </button>
         </div>
         <p>
-          OpenBench deliberately targets the practical overlap between Icarus and Verilator:
-          synthesizable RTL plus small procedural testbenches. You do not need classes or UVM to see
-          a first waveform.
+          OpenBench supports synthesizable RTL and straightforward procedural testbenches across
+          Icarus and Verilator.
         </p>
         <div className="support-grid">
           <section>
@@ -53,7 +52,7 @@ export default function HelpDialog({
             </ul>
           </section>
           <section>
-            <h3>Not the promised subset</h3>
+            <h3>Outside the supported subset</h3>
             <ul>
               <li>UVM, classes, factories, mailboxes, and constrained randomization</li>
               <li>DPI/VPI integrations and vendor-specific primitives</li>
@@ -71,7 +70,7 @@ export default function HelpDialog({
           </strong>
           <span>
             {simulator === 'iverilog'
-              ? 'Best-supported first-run path in this build, including VCD and compiled signal-stop conditions.'
+              ? 'Recommended for the simplest compile, simulation, waveform, and signal-stop workflow.'
               : 'Lint is validated. Full simulation additionally needs Make and a supported C++ compiler.'}
           </span>
         </div>

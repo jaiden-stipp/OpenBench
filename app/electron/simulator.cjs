@@ -6,6 +6,8 @@ const { promisify } = require('node:util');
 const { locateIcarus } = require('./compiler.cjs');
 
 const execFileAsync = promisify(execFile);
+const SIMULATION_ASSET_EXTENSIONS = new Set(['.bin', '.dat', '.hex', '.mem']);
+const MAX_STAGED_ASSET_BYTES = 64 * 1024 * 1024;
 
 async function mountSuite(suiteRoot) {
   if (process.platform !== 'win32') return { root: suiteRoot, cleanup: async () => {} };
@@ -89,6 +91,50 @@ function compileBreakpointMonitor(breakpoints = []) {
   };
 }
 
+async function stageSimulationAssets(projectRoot, runDirectory) {
+  let stagedBytes = 0;
+  const visit = async (directory, relativeDirectory = '') => {
+    const entries = await fsp.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === '.openbench-runs' || entry.name === '.rtlbench-runs') continue;
+      const relative = path.join(relativeDirectory, entry.name);
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(absolute, relative);
+        continue;
+      }
+      if (
+        !entry.isFile() ||
+        !SIMULATION_ASSET_EXTENSIONS.has(path.extname(entry.name).toLowerCase())
+      )
+        continue;
+      const stat = await fsp.stat(absolute);
+      stagedBytes += stat.size;
+      if (stagedBytes > MAX_STAGED_ASSET_BYTES)
+        throw new Error(
+          'Simulation data files exceed the 64 MB staging limit. Keep only the required .hex, .mem, .bin, or .dat files in the project, or reduce their size.',
+        );
+      const destination = path.join(runDirectory, relative);
+      await fsp.mkdir(path.dirname(destination), { recursive: true });
+      await fsp.copyFile(absolute, destination);
+    }
+  };
+  await visit(projectRoot);
+}
+
+async function createTraceMonitor(runDirectory, topModule, absoluteFiles) {
+  if (!/^[A-Za-z_$][\w$]*$/.test(topModule || '')) return null;
+  const contents = await Promise.all(absoluteFiles.map((file) => fsp.readFile(file, 'utf8')));
+  if (contents.some((content) => /\$dumpvars\s*\(/.test(content))) return null;
+  const monitorPath = path.join(runDirectory, 'openbench_trace_monitor.sv');
+  await fsp.writeFile(
+    monitorPath,
+    `module openbench_trace_monitor;\n  initial begin\n    $dumpfile("openbench.vcd");\n    $dumpvars(0, ${topModule});\n  end\nendmodule\n`,
+    'utf8',
+  );
+  return monitorPath;
+}
+
 async function runIcarusSimulation({
   projectRoot,
   files,
@@ -105,21 +151,25 @@ async function runIcarusSimulation({
     const runId = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
     const runDirectory = path.join(projectRoot, '.openbench-runs', runId);
     await fsp.mkdir(runDirectory, { recursive: true });
+    await stageSimulationAssets(projectRoot, runDirectory);
     const bytecode = path.join(runDirectory, 'simulation.vvp');
     const absoluteFiles = files.map((file) => path.resolve(projectRoot, file));
     const compileArgs = [...portable.baseArgs, '-g2012', '-o', bytecode];
     for (const includePath of includePaths)
       compileArgs.push('-I', path.resolve(projectRoot, includePath));
     const monitor = compileBreakpointMonitor(breakpoints);
+    const traceMonitorPath = await createTraceMonitor(runDirectory, topModule, absoluteFiles);
     if (topModule) compileArgs.push('-s', topModule);
     else for (const root of monitor.roots) compileArgs.push('-s', root);
     if (monitor.source) compileArgs.push('-s', 'rtlbench_breakpoint_monitor');
+    if (traceMonitorPath) compileArgs.push('-s', 'openbench_trace_monitor');
     compileArgs.push(...absoluteFiles);
     if (monitor.source) {
       const monitorPath = path.join(runDirectory, 'rtlbench_breakpoints.sv');
       await fsp.writeFile(monitorPath, monitor.source, 'utf8');
       compileArgs.push(monitorPath);
     }
+    if (traceMonitorPath) compileArgs.push(traceMonitorPath);
 
     onOutput('stdout', `$ ${portable.executable} ${compileArgs.join(' ')}\n`);
     const compileCode = await runProcess(
@@ -234,7 +284,9 @@ async function runVerilatorSimulation({
 
 module.exports = {
   compileBreakpointMonitor,
+  createTraceMonitor,
   mountSuite,
   runIcarusSimulation,
   runVerilatorSimulation,
+  stageSimulationAssets,
 };

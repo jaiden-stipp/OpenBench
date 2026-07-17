@@ -64,6 +64,7 @@ export default function WaveformPanel({
   const [editingBreakpoint, setEditingBreakpoint] = useState<string | null>(null);
   const [breakpointValue, setBreakpointValue] = useState('1');
   const [logicHelp, setLogicHelp] = useState<string | null>(null);
+  const [advancedTools, setAdvancedTools] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const dragKey = useRef<string | null>(null);
@@ -102,7 +103,7 @@ export default function WaveformPanel({
     );
     const fullEnd = Math.max(1, data.endTime);
     setSearch(session?.search || '');
-    setPreset(session?.preset || 'all');
+    setPreset(session?.preset || (data.signals.length > 32 ? 'essentials' : 'all'));
     setGroupFilter(session?.groupFilter || 'All groups');
     setViewport({
       start: Math.max(0, Math.min(fullEnd - 1, session?.viewStart ?? 0)),
@@ -405,6 +406,7 @@ export default function WaveformPanel({
         <strong>{name}</strong>
         <span>{data.signals.length} signals</span>
         <span>{data.timestampCount.toLocaleString()} timestamps</span>
+        <span>Timescale {data.timescale}</span>
         {breakpoints.length > 0 && (
           <span className="breakpoint-count">
             {breakpoints.length} compiled stop{breakpoints.length === 1 ? '' : 's'}
@@ -422,7 +424,7 @@ export default function WaveformPanel({
           onChange={(event) => setPreset(event.target.value as SignalPreset)}
         >
           <option value="all">All signals</option>
-          <option value="essentials">CPU essentials</option>
+          <option value="essentials">Key signals</option>
           <option value="clocks-resets">Clocks & resets</option>
           <option value="selected">Selected only</option>
         </select>
@@ -440,119 +442,129 @@ export default function WaveformPanel({
         >
           Full
         </button>
+        <button
+          className={advancedTools ? 'active' : ''}
+          onClick={() => setAdvancedTools((value) => !value)}
+        >
+          {advancedTools ? 'Hide' : 'Show'} advanced tools
+        </button>
       </div>
-      <div className="group-toolbar">
-        <span>Group selected:</span>
-        <input
-          placeholder="Group name"
-          value={groupName}
-          onChange={(event) => setGroupName(event.target.value)}
-        />
-        <button
-          disabled={!groupName.trim() || !views.some((view) => view.selected)}
-          onClick={applyGroup}
-        >
-          Apply
-        </button>
-        <span className="hint">Wheel: zoom · Shift+wheel: pan · Click trace: cursor</span>
-      </div>
-      <div className="measurement-toolbar">
-        <button
-          className={activeCursor === 'A' ? 'active' : ''}
-          onClick={() => setActiveCursor('A')}
-        >
-          Place A
-        </button>
-        <button
-          className={activeCursor === 'B' ? 'active' : ''}
-          onClick={() => setActiveCursor('B')}
-        >
-          Place B
-        </button>
-        <span className="measurement-readout">
-          A {formatSimulationTime(cursor, data.timescale)}
-          {cursorB !== null && (
-            <>
-              {' '}
-              · B {formatSimulationTime(cursorB, data.timescale)} · Δ{' '}
-              {formatSimulationTime(delta!, data.timescale)}
-              {frequencyLabel && ` · ${frequencyLabel}`}
-            </>
-          )}
-        </span>
-        <button
-          title="Previous transition on the first selected signal"
-          onClick={() => jumpEdge(-1)}
-        >
-          ← edge
-        </button>
-        <button title="Next transition on the first selected signal" onClick={() => jumpEdge(1)}>
-          edge →
-        </button>
-        <label>
+      {advancedTools && (
+        <div className="group-toolbar">
+          <span>Group selected:</span>
           <input
-            type="checkbox"
-            checked={changedOnly}
-            onChange={(event) => setChangedOnly(event.target.checked)}
-          />{' '}
-          Changed here
-        </label>
-        <input
-          aria-label="Bookmark name"
-          placeholder="Bookmark name"
-          value={bookmarkName}
-          onChange={(event) => setBookmarkName(event.target.value)}
-        />
-        <button
-          onClick={() => {
-            setBookmarks((current) => [
-              ...current,
-              { time: cursor, label: bookmarkName.trim() || `Time ${Math.round(cursor)}` },
-            ]);
-            setBookmarkName('');
-          }}
-        >
-          Add mark
-        </button>
-        {bookmarks.length > 0 && (
-          <select
-            aria-label="Jump to bookmark"
-            defaultValue=""
-            onChange={(event) => {
-              const mark = bookmarks[Number(event.target.value)];
-              if (mark) setCursor(mark.time);
-              event.target.value = '';
+            placeholder="Group name"
+            value={groupName}
+            onChange={(event) => setGroupName(event.target.value)}
+          />
+          <button
+            disabled={!groupName.trim() || !views.some((view) => view.selected)}
+            onClick={applyGroup}
+          >
+            Apply
+          </button>
+          <span className="hint">Wheel: zoom · Shift+wheel: pan · Click trace: cursor</span>
+        </div>
+      )}
+      {advancedTools && (
+        <div className="measurement-toolbar">
+          <button
+            className={activeCursor === 'A' ? 'active' : ''}
+            onClick={() => setActiveCursor('A')}
+          >
+            Place A
+          </button>
+          <button
+            className={activeCursor === 'B' ? 'active' : ''}
+            onClick={() => setActiveCursor('B')}
+          >
+            Place B
+          </button>
+          <span className="measurement-readout">
+            A {formatSimulationTime(cursor, data.timescale)}
+            {cursorB !== null && (
+              <>
+                {' '}
+                · B {formatSimulationTime(cursorB, data.timescale)} · Δ{' '}
+                {formatSimulationTime(delta!, data.timescale)}
+                {frequencyLabel && ` · ${frequencyLabel}`}
+              </>
+            )}
+          </span>
+          <button
+            title="Previous transition on the first selected signal"
+            onClick={() => jumpEdge(-1)}
+          >
+            ← edge
+          </button>
+          <button title="Next transition on the first selected signal" onClick={() => jumpEdge(1)}>
+            edge →
+          </button>
+          <label>
+            <input
+              type="checkbox"
+              checked={changedOnly}
+              onChange={(event) => setChangedOnly(event.target.checked)}
+            />{' '}
+            Changed here
+          </label>
+          <input
+            aria-label="Bookmark name"
+            placeholder="Bookmark name"
+            value={bookmarkName}
+            onChange={(event) => setBookmarkName(event.target.value)}
+          />
+          <button
+            onClick={() => {
+              setBookmarks((current) => [
+                ...current,
+                { time: cursor, label: bookmarkName.trim() || `Time ${Math.round(cursor)}` },
+              ]);
+              setBookmarkName('');
             }}
           >
-            <option value="">Bookmarks ({bookmarks.length})</option>
-            {bookmarks.map((mark, index) => (
-              <option key={`${mark.time}-${index}`} value={index}>
-                {mark.label} · {formatSimulationTime(mark.time, data.timescale)}
-              </option>
-            ))}
+            Add mark
+          </button>
+          {bookmarks.length > 0 && (
+            <select
+              aria-label="Jump to bookmark"
+              defaultValue=""
+              onChange={(event) => {
+                const mark = bookmarks[Number(event.target.value)];
+                if (mark) setCursor(mark.time);
+                event.target.value = '';
+              }}
+            >
+              <option value="">Bookmarks ({bookmarks.length})</option>
+              {bookmarks.map((mark, index) => (
+                <option key={`${mark.time}-${index}`} value={index}>
+                  {mark.label} · {formatSimulationTime(mark.time, data.timescale)}
+                </option>
+              ))}
+            </select>
+          )}
+          <select
+            aria-label="Compare with earlier run"
+            value={compareRunId}
+            onChange={(event) => {
+              const runId = event.target.value;
+              setCompareRunId(runId);
+              const run = runs.find((item) => item.id === runId);
+              if (runId && run && !run.data && !run.loading) void onLoadRun?.(runId);
+            }}
+          >
+            <option value="">Compare run…</option>
+            {runs
+              .filter((run) => run.data !== data)
+              .map((run) => (
+                <option key={run.id} value={run.id}>
+                  {run.loading ? 'Loading… ' : ''}
+                  {run.name} · {new Date(run.createdAt).toLocaleTimeString()}
+                </option>
+              ))}
           </select>
-        )}
-        <select
-          aria-label="Compare with earlier run"
-          value={compareRunId}
-          onChange={(event) => {
-            const runId = event.target.value;
-            setCompareRunId(runId);
-            const run = runs.find((item) => item.id === runId);
-            if (runId && run && !run.data && !run.loading) void onLoadRun?.(runId);
-          }}
-        >
-          <option value="">Compare run…</option>
-          {runs
-            .filter((run) => run.data !== data)
-            .map((run) => (
-              <option key={run.id} value={run.id}>
-                {run.loading ? 'Loading… ' : ''}
-                {run.name} · {new Date(run.createdAt).toLocaleTimeString()}
-              </option>
-            ))}
-        </select>
-      </div>
+        </div>
+      )}
       <div
         className="wave-grid"
         ref={gridRef}
@@ -610,7 +622,7 @@ export default function WaveformPanel({
                     onClick={() => onSignalNavigate?.(view.signal)}
                   >
                     <span>{signalLeafName(view.signal)}</span>
-                    <small title={view.signal.path}>{view.signal.scope || 'Top'}</small>
+                    <small title={view.signal.path}>{compactScope(view.signal.scope)}</small>
                   </button>
                   <select
                     value={view.radix}
@@ -776,6 +788,12 @@ function matchesPreset(signal: VcdSignal, view: SignalView, preset: SignalPreset
 
 function signalLeafName(signal: VcdSignal) {
   return signal.name || signal.path.split('.').at(-1) || signal.path;
+}
+
+function compactScope(scope: string) {
+  if (!scope) return 'Top';
+  const parts = scope.split('.');
+  return parts.length > 2 ? `…${parts.slice(-2).join('.')}` : scope;
 }
 
 function formatFileSize(bytes: number) {

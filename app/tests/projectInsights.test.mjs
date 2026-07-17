@@ -53,6 +53,26 @@ test('does not mistake language constructs or system tasks for modules', () => {
   assert.deepEqual(result.missingModules, []);
 });
 
+test('does not report named ports, casts, or case expressions as missing modules', () => {
+  const result = analyzeProjectSources([
+    {
+      path: 'cpu.sv',
+      content: `module cpu(input logic clk, output logic [31:0] result);
+        alu execute(.ALU_result(result), .clk(clk));
+        always_comb case (clk) 1'b1: result = (result + 1); default: result = 0; endcase
+      endmodule
+      module alu(input logic clk, output logic [31:0] ALU_result); endmodule`,
+    },
+    {
+      path: 'cpu_tb.sv',
+      content: `module cpu_tb; real cpi; logic clk, result; cpu dut(.clk(clk), .result(result));
+        initial cpi = real'(result);
+      endmodule`,
+    },
+  ]);
+  assert.deepEqual(result.missingModules, []);
+});
+
 test('explains flat unknown waveforms without inventing results', () => {
   const result = explainWaveform({
     endTime: 10,

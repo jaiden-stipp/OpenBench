@@ -59,3 +59,29 @@ test('real Yosys honors configured include paths', async () => {
     await fsp.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test('real Yosys elaborates package-defined packed structs through the Slang frontend', async () => {
+  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-yosys-package-'));
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
+  try {
+    await fsp.writeFile(
+      path.join(projectRoot, 'cpu_pkg.sv'),
+      'package cpu_pkg; typedef struct packed { logic valid; logic [3:0] opcode; } control_t; endpackage\n',
+    );
+    await fsp.writeFile(
+      path.join(projectRoot, 'cpu.sv'),
+      'import cpu_pkg::*; module cpu(input logic clk, input control_t control, output logic valid); always_ff @(posedge clk) valid <= control.valid; endmodule\n',
+    );
+    const result = await runYosysElaboration({
+      projectRoot,
+      suiteRoot,
+      files: ['cpu_pkg.sv', 'cpu.sv'],
+      topModule: 'cpu',
+    });
+    const json = JSON.parse(await fsp.readFile(result.jsonPath, 'utf8'));
+    assert.equal(result.top, 'cpu');
+    assert.match(json.modules.cpu.attributes.src, /^cpu\.sv:/);
+  } finally {
+    await fsp.rm(projectRoot, { recursive: true, force: true });
+  }
+});

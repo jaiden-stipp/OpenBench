@@ -42,10 +42,15 @@ type DialogLayerProps = {
   waveformInteracted: boolean;
   waveformReady: boolean;
   waveformInsights: ReturnType<typeof import('../projectInsights').explainWaveform>;
-  onActivateSelection: (name: string, files: string[]) => void;
+  onActivateSelection: (
+    name: string,
+    files: string[],
+    topModule: string,
+    simulationTop: string,
+  ) => void;
   onCompleteTutorial: () => void;
   onComposeEmail: (kind: 'feedback' | 'bug') => void;
-  onCreateProject: (name: string, withStarter: boolean) => void;
+  onCreateProject: (name: string, withStarter: boolean, topModule: string) => void;
   onDuplicateProjectFile: (node: ProjectNode) => void;
   onGenerateTestbench: (
     moduleName: string,
@@ -55,6 +60,7 @@ type DialogLayerProps = {
   onOpenTutorialExample: () => Promise<void>;
   onRemoveProjectEntry: (node: ProjectNode) => void;
   onSaveSettings: (settings: ProjectSettings) => Promise<void>;
+  onSetDesignTop: (moduleName: string) => Promise<void>;
   onSubmitPrompt: (value: string) => void;
   setAccessibility: Dispatch<SetStateAction<AccessibilityPreferences>>;
   setActiveView: Dispatch<SetStateAction<ActiveView>>;
@@ -83,11 +89,18 @@ export default function AppDialogLayer(props: DialogLayerProps) {
 }
 
 function SupportDialogs(props: DialogLayerProps) {
+  const testbenchKeys = new Set(
+    props.projectInsights.testbenches.map((module) => `${module.file}:${module.name}`),
+  );
   return (
     <>
       {props.showSettings && (
         <SettingsDialog
           initial={props.settings}
+          designModules={props.projectInsights.modules
+            .filter((module) => !testbenchKeys.has(`${module.file}:${module.name}`))
+            .map((module) => module.name)}
+          simulationModules={props.projectInsights.testbenches.map((module) => module.name)}
           onClose={() => props.setShowSettings(false)}
           onSave={async (next) => {
             await props.onSaveSettings(next);
@@ -195,9 +208,21 @@ function TutorialAndPromptDialogs(props: DialogLayerProps) {
 
 function ContextMenuDialog(props: DialogLayerProps) {
   if (!props.contextMenu) return null;
+  const testbenchKeys = new Set(
+    props.projectInsights.testbenches.map((module) => `${module.file}:${module.name}`),
+  );
+  const designModules = props.projectInsights.modules
+    .filter(
+      (module) =>
+        module.file === props.contextMenu?.node.path &&
+        !testbenchKeys.has(`${module.file}:${module.name}`),
+    )
+    .map((module) => module.name);
   return (
     <ProjectContextMenu
       {...props.contextMenu}
+      designModules={designModules}
+      currentTop={props.settings.topModule}
       onNewFile={(node) => openPrompt('new-file', node, 'new_module.sv', props)}
       onNewFolder={(node) => openPrompt('new-folder', node, 'subfolder', props)}
       onRename={(node) => openPrompt('rename', node, node.name, props)}
@@ -212,6 +237,10 @@ function ContextMenuDialog(props: DialogLayerProps) {
         props.setContextMenu(null);
       }}
       onRemove={props.onRemoveProjectEntry}
+      onSetDesignTop={(moduleName) => {
+        props.setContextMenu(null);
+        void props.onSetDesignTop(moduleName);
+      }}
     />
   );
 }

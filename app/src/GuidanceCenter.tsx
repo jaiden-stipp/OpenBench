@@ -97,8 +97,8 @@ export default function GuidanceCenter({
   const applySuggestions = async () => {
     await onSaveSettings({
       ...settings,
-      topModule: insights.suggestedTop || settings.topModule,
-      simulationTop: insights.suggestedSimulationTop || settings.simulationTop,
+      topModule: settings.topModule || insights.suggestedTop,
+      simulationTop: settings.simulationTop || insights.suggestedSimulationTop,
     });
     setMessage('Suggested top modules saved.');
   };
@@ -112,8 +112,8 @@ export default function GuidanceCenter({
       >
         <header>
           <div>
-            <small>BEGINNER ASSISTANCE</small>
-            <h2 id="guidance-title">Project Health & Learning</h2>
+            <small>PROJECT</small>
+            <h2 id="guidance-title">Project Guide</h2>
           </div>
           <button aria-label="Close" onClick={onClose}>
             ×
@@ -159,8 +159,7 @@ export default function GuidanceCenter({
                 </span>
               </div>
               {(insights?.suggestedTop || insights?.suggestedSimulationTop) &&
-                (settings.topModule !== insights.suggestedTop ||
-                  settings.simulationTop !== insights.suggestedSimulationTop) && (
+                (!settings.topModule || !settings.simulationTop) && (
                   <div className="health-action">
                     <span>
                       <strong>Hierarchy-based setup</strong>
@@ -169,7 +168,7 @@ export default function GuidanceCenter({
                         {insights.suggestedSimulationTop || 'not found'}
                       </small>
                     </span>
-                    <button onClick={() => void applySuggestions()}>Apply detected tops</button>
+                    <button onClick={() => void applySuggestions()}>Fill missing selections</button>
                   </div>
                 )}
               <div className="insight-list">
@@ -190,9 +189,7 @@ export default function GuidanceCenter({
                     <i>✓</i>
                     <span>
                       <strong>No common setup problems detected</strong>
-                      <small>
-                        Compile and simulate to validate the project with the real backend.
-                      </small>
+                      <small>Compile or run RTL Analysis to validate the project.</small>
                     </span>
                   </article>
                 )}
@@ -200,7 +197,7 @@ export default function GuidanceCenter({
               <div className="health-action">
                 <span>
                   <strong>Bundled toolchain self-test</strong>
-                  <small>Runs a genuine tiny Icarus simulation and Yosys JSON elaboration.</small>
+                  <small>Checks the bundled simulator and RTL tools with a small design.</small>
                 </span>
                 <button
                   disabled={checking}
@@ -233,7 +230,7 @@ export default function GuidanceCenter({
           {tab === 'hierarchy' &&
             (netlist && rtlTop ? (
               <>
-                <p>Click a module to focus it in the genuine Yosys-derived schematic.</p>
+                <p>Select a module to focus it in the RTL schematic.</p>
                 <Hierarchy netlist={netlist} top={rtlTop} onOpenModule={onOpenModule} />
               </>
             ) : (
@@ -244,10 +241,7 @@ export default function GuidanceCenter({
             ))}
           {tab === 'learn' && (
             <>
-              <p>
-                Each lesson is an editable local project with a real procedural testbench and
-                waveform.
-              </p>
+              <p>Learn by editing and running a complete local project.</p>
               <div className="lesson-grid">
                 {[
                   ['getting-started', 'Counter', 'Clock, reset, enable, and a 4-bit register'],
@@ -256,7 +250,7 @@ export default function GuidanceCenter({
                   ['alu', 'Simple ALU', 'Combinational case logic and operations'],
                 ].map(([id, title, description]) => (
                   <article key={id}>
-                    <small>EDITABLE LESSON</small>
+                    <small>LESSON</small>
                     <strong>{title}</strong>
                     <span>{description}</span>
                     <button onClick={() => void onOpenLearningProject(id)}>Open lesson</button>
@@ -340,7 +334,7 @@ export default function GuidanceCenter({
                   setMessage(saved ? `Saved diagnostic bundle to ${saved}` : 'Export canceled.');
                 }}
               >
-                Export diagnostic bundle…
+                Save support report…
               </button>
               <div className="bundle-contents">
                 <strong>Always included</strong>

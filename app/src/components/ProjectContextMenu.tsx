@@ -9,6 +9,9 @@ interface ProjectContextMenuProps {
   onCopyPath: (node: ProjectNode) => void;
   onReveal: (node: ProjectNode) => void;
   onRemove: (node: ProjectNode) => void;
+  designModules: string[];
+  currentTop: string;
+  onSetDesignTop: (moduleName: string) => void;
 }
 
 export default function ProjectContextMenu(props: ProjectContextMenuProps) {
@@ -29,7 +32,20 @@ export default function ProjectContextMenu(props: ProjectContextMenuProps) {
       )}
       <button onClick={() => props.onRename(props.node)}>Rename…</button>
       {props.node.kind === 'file' && (
-        <button onClick={() => props.onDuplicate(props.node)}>Duplicate</button>
+        <>
+          <button onClick={() => props.onDuplicate(props.node)}>Duplicate</button>
+          {props.designModules.map((moduleName) => (
+            <button
+              key={moduleName}
+              disabled={props.currentTop === moduleName}
+              onClick={() => props.onSetDesignTop(moduleName)}
+            >
+              {props.currentTop === moduleName
+                ? `Design top: ${moduleName}`
+                : `Set ${moduleName} as Design Top`}
+            </button>
+          ))}
+        </>
       )}
       <button onClick={() => props.onCopyPath(props.node)}>Copy Relative Path</button>
       <button onClick={() => props.onReveal(props.node)}>Show in File Explorer</button>

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createRequire } from 'node:module';
 import { parseYosysSource } from '../src/sourceLocation.js';
+
+const require = createRequire(import.meta.url);
+const { normalizeNetlistSources } = require('../electron/yosys.cjs');
 
 test('normalizes absolute Yosys source attributes into project-relative locations', () => {
   assert.deepEqual(
@@ -23,4 +27,10 @@ test('accepts Yosys locations that only provide a source line', () => {
     line: 42,
     column: 1,
   });
+});
+
+test('normalizes slang source paths from a generated run back to the project', () => {
+  const netlist = { modules: { cpu: { attributes: { src: '../../rtl/cpu.sv:3.8-4.2' } } } };
+  normalizeNetlistSources(netlist, 'C:/project', 'C:/project/.openbench-runs/yosys-run');
+  assert.equal(netlist.modules.cpu.attributes.src, 'rtl/cpu.sv:3.8-4.2');
 });

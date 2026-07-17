@@ -15,14 +15,11 @@ export default function AboutDialog({ onClose }: AboutDialogProps) {
             ×
           </button>
         </div>
-        <p>
-          A zero-setup Verilog/SystemVerilog workbench built around genuine Icarus, Verilator, and
-          Yosys backends.
-        </p>
+        <p>A Verilog/SystemVerilog workbench with bundled Icarus, Verilator, and Yosys tools.</p>
         <div className="about-points">
-          <span>Real simulation and VCD waveforms</span>
-          <span>Yosys JSON RTL schematics</span>
-          <span>Beginner-oriented explanations</span>
+          <span>Simulation and VCD waveforms</span>
+          <span>Interactive RTL schematics</span>
+          <span>Clear, source-linked diagnostics</span>
         </div>
         <p className="license-notice">
           Copyright © 2026 Jaiden Stipp and OpenBench contributors. OpenBench is free software under

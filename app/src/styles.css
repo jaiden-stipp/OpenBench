@@ -116,6 +116,29 @@ button {
 .run-toolbar {
   justify-self: end;
 }
+.run-targets {
+  min-width: 150px;
+  max-width: 230px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 1px 7px;
+  padding: 3px 9px;
+  color: #7890a8;
+  border-right: 1px solid #2c3b4c;
+  font-size: 9px;
+}
+.run-targets strong,
+.run-targets small {
+  overflow: hidden;
+  color: #cbd8e6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-targets small {
+  grid-column: 1 / -1;
+  color: #7890a8;
+}
 .toolbar button.icon-action {
   width: 31px;
   padding: 6px 0;

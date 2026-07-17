@@ -48,8 +48,11 @@ function useCompileEvents(setters: BackendEventSetters) {
           if (event.code === 0) clearInlineLintMarkers();
           setLintStatus(event.code === 0 ? 'clean' : 'issues');
           if (event.code !== 0) setShowGuidance(true);
-          setConsoleText((value) => `${value}\nCompile finished with exit code ${event.code}.\n`);
-          setStatus(event.code === 0 ? 'Compile passed' : 'Compile failed');
+          setConsoleText(
+            (value) =>
+              `${value}\n${event.code === 0 ? 'Compile succeeded.' : `Compile failed (exit code ${event.code}).`}\n`,
+          );
+          setStatus(event.code === 0 ? 'Compile succeeded' : 'Compile failed');
         }
       }),
     [
@@ -73,7 +76,7 @@ function useSimulationEvents(setters: BackendEventSetters) {
           setSimulating(true);
           setConsoleMode('simulation');
           setConsoleText(
-            `Starting real ${event.backend === 'verilator' ? 'Verilator' : 'Icarus'} simulation…\n`,
+            `Running simulation with ${event.backend === 'verilator' ? 'Verilator' : 'Icarus Verilog'}…\n`,
           );
           setStatus('Simulating');
         } else if (event.type === 'output') {
@@ -82,7 +85,8 @@ function useSimulationEvents(setters: BackendEventSetters) {
           setSimulating(false);
           if (event.code !== 0) setShowGuidance(true);
           setConsoleText(
-            (value) => `${value}\nSimulation finished with exit code ${event.code}.\n`,
+            (value) =>
+              `${value}\n${event.code === 0 ? 'Simulation completed. Waveform ready.' : `Simulation failed (exit code ${event.code}).`}\n`,
           );
           setStatus(
             event.code === 0
@@ -105,13 +109,16 @@ function useRtlEvents(setters: BackendEventSetters) {
         if (event.type === 'start') {
           setRtlRunning(true);
           setConsoleMode('rtl');
-          setConsoleText('Starting real Yosys elaboration…\n');
+          setConsoleText('Building RTL schematic with Yosys…\n');
           setStatus('Elaborating RTL');
         } else if (event.type === 'output') {
           setConsoleText((value) => value + event.text);
         } else {
           setRtlRunning(false);
-          setConsoleText((value) => `${value}\nYosys finished with exit code ${event.code}.\n`);
+          setConsoleText(
+            (value) =>
+              `${value}\n${event.code === 0 ? 'RTL schematic ready.' : `RTL Analysis failed (exit code ${event.code}).`}\n`,
+          );
           setStatus(
             event.code === 0
               ? `RTL ready: ${event.top} (${event.moduleCount} modules)`

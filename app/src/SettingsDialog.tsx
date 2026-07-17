@@ -2,10 +2,14 @@ import { useState } from 'react';
 
 export default function SettingsDialog({
   initial,
+  designModules,
+  simulationModules,
   onClose,
   onSave,
 }: {
   initial: ProjectSettings;
+  designModules: string[];
+  simulationModules: string[];
   onClose: () => void;
   onSave: (settings: ProjectSettings) => Promise<void>;
 }) {
@@ -13,6 +17,7 @@ export default function SettingsDialog({
   const [includeText, setIncludeText] = useState(initial.includePaths.join('\n'));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const save = async () => {
     setSaving(true);
@@ -71,58 +76,76 @@ export default function SettingsDialog({
           </select>
           <small>
             {draft.simulator === 'verilator'
-              ? 'Lint works with the bundled backend. Simulation also requires a supported C++ compiler and Make-compatible build tool.'
-              : 'Validated compile and simulation backend in this runtime.'}
-          </small>
-        </label>
-        <label>
-          <span>OSS CAD Suite folder</span>
-          <input
-            placeholder="Auto-detect, or C:\\tools\\oss-cad-suite"
-            value={draft.toolchainPath}
-            onChange={(event) =>
-              setDraft((value) => ({ ...value, toolchainPath: event.target.value }))
-            }
-          />
-          <small>
-            Project-relative or absolute extracted suite folder. OpenBench also checks
-            OPENBENCH_TOOLCHAIN and a suite bundled beside the app.
+              ? 'Useful for strict linting. Simulation may also require a C++ build toolchain.'
+              : 'Recommended for the simplest compile and simulation workflow.'}
           </small>
         </label>
         <div className="settings-columns">
           <label>
             <span>Design top module</span>
-            <input
-              placeholder="Auto-detect"
+            <select
               value={draft.topModule}
               onChange={(event) =>
                 setDraft((value) => ({ ...value, topModule: event.target.value }))
               }
-            />
-            <small>Passed to Yosys `hierarchy -top`.</small>
+            >
+              <option value="">Select a design module</option>
+              {[...new Set([draft.topModule, ...designModules].filter(Boolean))].map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <small>Used for RTL Analysis; no testbench is required.</small>
           </label>
           <label>
             <span>Simulation top module</span>
-            <input
-              placeholder="Icarus auto-roots"
+            <select
               value={draft.simulationTop}
               onChange={(event) =>
                 setDraft((value) => ({ ...value, simulationTop: event.target.value }))
               }
-            />
-            <small>Usually the testbench module.</small>
+            >
+              <option value="">No testbench selected</option>
+              {[...new Set([draft.simulationTop, ...simulationModules].filter(Boolean))].map(
+                (name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ),
+              )}
+            </select>
+            <small>Optional. Select a testbench to enable simulation.</small>
           </label>
         </div>
-        <label>
-          <span>Include paths</span>
-          <textarea
-            rows={5}
-            placeholder="Leave empty unless your source uses `include files"
-            value={includeText}
-            onChange={(event) => setIncludeText(event.target.value)}
-          />
-          <small>Optional. Add one real project-relative or absolute directory per line.</small>
-        </label>
+        <div className="toolchain-ready">Bundled tools are selected automatically.</div>
+        <button className="advanced-toggle" onClick={() => setShowAdvanced((value) => !value)}>
+          {showAdvanced ? 'Hide' : 'Show'} advanced settings
+        </button>
+        {showAdvanced && (
+          <div className="advanced-settings">
+            <label>
+              <span>Custom toolchain location</span>
+              <input
+                placeholder="Leave empty to use bundled tools"
+                value={draft.toolchainPath}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, toolchainPath: event.target.value }))
+                }
+              />
+              <small>Use this only when testing a different OSS CAD Suite installation.</small>
+            </label>
+            <label>
+              <span>Include paths</span>
+              <textarea
+                rows={5}
+                placeholder="One project-relative or absolute directory per line"
+                value={includeText}
+                onChange={(event) => setIncludeText(event.target.value)}
+              />
+            </label>
+          </div>
+        )}
         {error && <div className="settings-error">{error}</div>}
         <div className="settings-actions">
           <button onClick={onClose}>Cancel</button>

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require('electron');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -30,6 +30,7 @@ const { ensureExampleProject } = require('./exampleProject.cjs');
 const { createSupportBundle, runBackendSelfTest } = require('./support.cjs');
 const { createWorkspaceRegistry } = require('./workspaceController.cjs');
 const { registerWaveformIpc } = require('./ipc/waveform.cjs');
+const { orderSourceFiles } = require('./sourceOrder.cjs');
 const hdlStructure = import('../shared/hdlStructure.js');
 
 const HDL_EXTENSIONS = new Set(['.v', '.sv', '.vh', '.svh']);
@@ -434,7 +435,8 @@ async function prepareBackendRun(
     const designFiles = designOnly
       ? allFiles.filter((file) => !/(^|[_.-])(tb|testbench)([_.-]|$)/i.test(path.basename(file)))
       : allFiles;
-    const files = designOnly && designFiles.length ? designFiles : allFiles;
+    const selectedFiles = designOnly && designFiles.length ? designFiles : allFiles;
+    const files = await orderSourceFiles(projectRoot, selectedFiles);
     if (!allowEmpty && !files.length)
       throw new Error(
         designOnly
@@ -482,29 +484,31 @@ ipcMain.handle('project:selectFolder', async () => {
   );
   const { analyzeHdlFiles } = await hdlStructure;
   const analysis = analyzeHdlFiles(files);
+  const savedSettings = manifest ? await loadProjectSettings(root) : null;
   return {
     root,
     name: manifest?.name || path.basename(root),
     candidates,
     selected: manifest?.files || candidates,
     roles: analysis.roles,
-    suggestedTop: analysis.suggestedTop,
-    suggestedSimulationTop: analysis.suggestedSimulationTop,
+    modules: analysis.modules,
+    suggestedTop: savedSettings?.topModule || analysis.suggestedTop,
+    suggestedSimulationTop: savedSettings?.simulationTop || analysis.suggestedSimulationTop,
+    existingProject: Boolean(manifest),
   };
 });
 
 ipcMain.handle('project:activate', async (event, selection) => {
-  const next = await activateProject(selection.root, selection.files || [], selection.name);
+  const next = selection.existingProject
+    ? await projectData(selection.root)
+    : await activateProject(selection.root, selection.files || [], selection.name);
   getWorkspace(event.sender).setProject(next.root);
   const currentSettings = await loadProjectSettings(next.root);
-  if (
-    (!currentSettings.topModule && selection.suggestedTop) ||
-    (!currentSettings.simulationTop && selection.suggestedSimulationTop)
-  )
+  if (selection.topModule !== undefined || selection.simulationTop !== undefined)
     await saveProjectSettings(next.root, {
       ...currentSettings,
-      topModule: currentSettings.topModule || selection.suggestedTop || '',
-      simulationTop: currentSettings.simulationTop || selection.suggestedSimulationTop || '',
+      topModule: selection.topModule || '',
+      simulationTop: selection.simulationTop || '',
     });
   return next;
 });
@@ -518,7 +522,12 @@ ipcMain.handle('project:chooseNewParent', async () => {
 });
 
 ipcMain.handle('project:create', async (event, options) => {
-  const next = await createProject(options.parent, options.name, options.withStarter !== false);
+  const next = await createProject(
+    options.parent,
+    options.name,
+    options.withStarter !== false,
+    options.topModule || '',
+  );
   getWorkspace(event.sender).setProject(next.root);
   return next;
 });
@@ -946,6 +955,7 @@ ipcMain.handle('testbench:generate', async (event, moduleName, options = {}) => 
 });
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

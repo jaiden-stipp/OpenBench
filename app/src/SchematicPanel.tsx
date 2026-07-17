@@ -34,6 +34,8 @@ type ElkLayoutResult = {
   edges?: ElkPlacedEdge[];
 };
 
+const layoutCache = new WeakMap<object, Map<string, Layout>>();
+
 function cleanNet(value: string | null) {
   return (
     value
@@ -380,6 +382,12 @@ export default function SchematicPanel({
       setLayout(null);
       return;
     }
+    const cached = layoutCache.get(netlist)?.get(moduleName);
+    if (cached) {
+      setLayout(cached);
+      setLayoutError(null);
+      return;
+    }
     let cancelled = false;
     setLayoutError(null);
     const graph = buildModuleGraph(netlist, moduleName);
@@ -428,7 +436,7 @@ export default function SchematicPanel({
           (result.children || []).map((node) => [node.id, node] as const),
         );
         const edgeLayouts = new Map((result.edges || []).map((edge) => [edge.id, edge] as const));
-        setLayout({
+        const nextLayout: Layout = {
           width: Math.max(400, result.width || 400),
           height: Math.max(260, result.height || 260),
           graph,
@@ -454,7 +462,11 @@ export default function SchematicPanel({
                 : [],
             };
           }),
-        });
+        };
+        const moduleLayouts = layoutCache.get(netlist) || new Map<string, Layout>();
+        moduleLayouts.set(moduleName, nextLayout);
+        layoutCache.set(netlist, moduleLayouts);
+        setLayout(nextLayout);
         setScale(1);
         setPan({ x: 0, y: 0 });
       })
@@ -490,7 +502,7 @@ export default function SchematicPanel({
         <span>
           {layout
             ? `${summarizeNodes(layout.nodes)} · ${layout.edges.length} nets`
-            : 'Running ELK layout…'}
+            : 'Laying out RTL…'}
         </span>
         {selectedNodeDetails && (
           <span className={`selected-node-summary ${selectedNodeDetails.symbol}`}>
@@ -504,7 +516,7 @@ export default function SchematicPanel({
           <button onClick={() => setModuleName(selectedNodeDetails.moduleRef!)}>Open module</button>
         )}
         {selectedNet && (
-          <code title={`Yosys net: ${selectedNet}`}>signal: {friendlyNetLabel(selectedNet)}</code>
+          <code title={`Yosys net: ${selectedNet}`}>Net: {friendlyNetLabel(selectedNet)}</code>
         )}
         <button onClick={() => setScale((value) => Math.min(4, value * 1.25))}>Zoom +</button>
         <button onClick={() => setScale((value) => Math.max(0.3, value / 1.25))}>Zoom −</button>
@@ -519,7 +531,7 @@ export default function SchematicPanel({
         <button
           data-testid="starter-testbench"
           className="starter-testbench"
-          title="Build an editable beginner testbench from these real Yosys ports"
+          title="Build an editable starter testbench from this module's ports"
           onClick={() => onGenerateTestbench(moduleName)}
         >
           Stimulus Builder
@@ -549,9 +561,7 @@ export default function SchematicPanel({
       <div className="schematic-stage">
         {!layout ? (
           <div className={`layout-progress ${layoutError ? 'error' : ''}`}>
-            {layoutError
-              ? `ELK layout failed: ${layoutError}`
-              : 'ELK is laying out the elaborated netlist…'}
+            {layoutError ? `ELK layout failed: ${layoutError}` : 'Laying out the RTL schematic…'}
           </div>
         ) : (
           <svg

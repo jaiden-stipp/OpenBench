@@ -8,6 +8,7 @@ type AppHeaderProps = {
   activeView: ActiveView;
   compiling: boolean;
   consoleDock: 'bottom' | 'right';
+  designTop: string;
   explorerDock: 'left' | 'right';
   hasRunSimulation: boolean;
   menuActions: Record<string, () => void>;
@@ -23,6 +24,7 @@ type AppHeaderProps = {
   setTheme: Dispatch<SetStateAction<Theme>>;
   setWatchMode: Dispatch<SetStateAction<boolean>>;
   simulating: boolean;
+  simulationTop: string;
   theme: Theme;
   waveformReady: boolean;
   watchMode: boolean;
@@ -57,11 +59,13 @@ export default function AppHeader(props: AppHeaderProps) {
         actions={props.menuActions}
       />
       <RunToolbar
+        designTop={props.designTop}
         hasProject={props.projectReady}
         hasOpenFile={Boolean(props.openFile)}
         fileIsSaved={!props.openFile || props.openFile.content === props.openFile.savedContent}
         compiling={props.compiling}
         simulating={props.simulating}
+        simulationTop={props.simulationTop}
         rtlRunning={props.rtlRunning}
         watchMode={props.watchMode}
         hasRunSimulation={props.hasRunSimulation}

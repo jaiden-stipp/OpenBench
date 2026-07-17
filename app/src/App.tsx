@@ -250,6 +250,7 @@ export default function App() {
 
   const { activateSelection, beginNewProject, createNewProject, openProject } =
     useProjectPickerActions({
+      activeProjectRoot: project?.root,
       importSelection,
       loadProject,
       newProjectParent,
@@ -396,7 +397,15 @@ export default function App() {
     newFile: () => setPrompt({ kind: 'new-file', initialValue: 'new_module.sv' }),
     newFolder: () => setPrompt({ kind: 'new-folder', initialValue: 'rtl' }),
     addFiles: () => void addProjectFiles(),
+    stimulus: () => {
+      if (rtlTop) setStimulusModule(rtlTop);
+      else {
+        setActiveView('schematic');
+        setStatus('Run RTL Analysis, then generate a starter testbench for the design top.');
+      }
+    },
     save: () => void save(),
+    saveAll: () => void saveAllDirtyFiles(),
     settings: () => setShowSettings(true),
     close: () => void window.openbench.windowAction('close'),
     undo: () => editorRef.current?.trigger('menu', 'undo', null),
@@ -443,6 +452,7 @@ export default function App() {
         activeView={activeView}
         compiling={compiling}
         consoleDock={consoleDock}
+        designTop={settings.topModule}
         explorerDock={explorerDock}
         hasRunSimulation={hasRunSimulation}
         menuActions={menuActions}
@@ -458,6 +468,7 @@ export default function App() {
         setTheme={setTheme}
         setWatchMode={setWatchMode}
         simulating={simulating}
+        simulationTop={settings.simulationTop}
         theme={theme}
         waveformReady={Boolean(waveform)}
         watchMode={watchMode}
@@ -554,16 +565,24 @@ export default function App() {
         waveformInteracted={Boolean(waveformSession && waveformSession.cursor > 0)}
         waveformReady={Boolean(waveform)}
         waveformInsights={waveformInsights}
-        onActivateSelection={(name, files) => void activateSelection(name, files)}
+        onActivateSelection={(name, files, topModule, simulationTop) =>
+          void activateSelection(name, files, topModule, simulationTop)
+        }
         onCompleteTutorial={completeTutorial}
         onComposeEmail={(kind) => void composeFeedbackEmail(kind)}
-        onCreateProject={(name, starter) => void createNewProject(name, starter)}
+        onCreateProject={(name, starter, topModule) =>
+          void createNewProject(name, starter, topModule)
+        }
         onDuplicateProjectFile={(node) => void duplicateProjectFile(node)}
         onGenerateTestbench={(module, options) => void generateTestbench(module, options)}
         onOpenLearningProject={openLearningProject}
         onOpenTutorialExample={() => openExampleProject(true)}
         onRemoveProjectEntry={(node) => void removeProjectEntry(node)}
         onSaveSettings={saveProjectSettings}
+        onSetDesignTop={async (moduleName) => {
+          await saveProjectSettings({ ...settings, topModule: moduleName });
+          setStatus(`Design top set to ${moduleName}`);
+        }}
         onSubmitPrompt={(value) => void submitPrompt(value)}
         setAccessibility={setAccessibility}
         setActiveView={setActiveView}

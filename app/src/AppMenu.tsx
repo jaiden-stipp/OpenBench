@@ -94,7 +94,7 @@ export default function AppMenu({
   const menus: Record<MenuName, MenuItem[]> = {
     File: [
       { label: 'New Project…', shortcut: 'Ctrl+Shift+N', action: actions.newProject },
-      { label: 'Add Folder as Project…', shortcut: 'Ctrl+O', action: actions.openProject },
+      { label: 'Open Project Folder…', shortcut: 'Ctrl+O', action: actions.openProject },
       { separator: true },
       {
         label: 'New HDL File…',
@@ -104,7 +104,13 @@ export default function AppMenu({
       },
       { label: 'New Folder…', disabled: !hasProject, action: actions.newFolder },
       { label: 'Add Existing Files…', disabled: !hasProject, action: actions.addFiles },
+      {
+        label: 'Generate Starter Testbench…',
+        disabled: !hasProject,
+        action: actions.stimulus,
+      },
       { label: 'Save', shortcut: 'Ctrl+S', disabled: !hasFile, action: actions.save },
+      { label: 'Save All', disabled: !hasProject, action: actions.saveAll },
       { separator: true },
       { label: 'Project Settings…', disabled: !hasProject, action: actions.settings },
       { separator: true },
@@ -174,8 +180,8 @@ export default function AppMenu({
     ],
     Help: [
       { label: 'Getting Started Tutorial', action: actions.tutorial },
-      { label: 'Project Health & Learning', disabled: !hasProject, action: actions.guidance },
-      { label: 'Beginner Guide and Supported HDL', action: actions.help },
+      { label: 'Project Guide', disabled: !hasProject, action: actions.guidance },
+      { label: 'Help and Supported HDL', action: actions.help },
       { label: 'Open Example Project', action: actions.example },
       { separator: true },
       { label: 'Send Feedback…', action: actions.feedback },

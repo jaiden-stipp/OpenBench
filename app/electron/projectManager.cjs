@@ -162,7 +162,7 @@ async function activateProject(root, selectedFiles, name) {
   return projectData(canonical);
 }
 
-async function createProject(parent, name, withStarter = true) {
+async function createProject(parent, name, withStarter = true, requestedTopModule = '') {
   if (!/^[A-Za-z0-9][A-Za-z0-9._ -]{0,79}$/.test(name || ''))
     throw new Error(
       'Use a project name containing letters, numbers, spaces, dots, dashes, or underscores.',
@@ -177,8 +177,7 @@ async function createProject(parent, name, withStarter = true) {
   }
   const files = [];
   if (withStarter) {
-    const moduleName =
-      name.replace(/[^A-Za-z0-9_$]/g, '_').replace(/^[^A-Za-z_$]/, '_$&') || 'design';
+    const moduleName = sanitizeModuleName(requestedTopModule || name);
     const source = `module ${moduleName}(\n  input  logic clk,\n  input  logic rst_n,\n  output logic led\n);\n  always_ff @(posedge clk or negedge rst_n) begin\n    if (!rst_n) led <= 1'b0;\n    else led <= ~led;\n  end\nendmodule\n`;
     await fsp.writeFile(path.join(root, `${moduleName}.sv`), source, 'utf8');
     const testbenchName = `${moduleName}_tb`;
@@ -193,6 +192,10 @@ async function createProject(parent, name, withStarter = true) {
   }
   await saveManifest(root, { name, files, folders: [] });
   return projectData(root);
+}
+
+function sanitizeModuleName(value) {
+  return value.replace(/[^A-Za-z0-9_$]/g, '_').replace(/^[^A-Za-z_$]/, '_$&') || 'design';
 }
 
 async function createFile(root, relativePath, content = '') {

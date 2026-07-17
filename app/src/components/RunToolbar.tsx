@@ -1,9 +1,11 @@
 interface RunToolbarProps {
+  designTop: string;
   hasProject: boolean;
   hasOpenFile: boolean;
   fileIsSaved: boolean;
   compiling: boolean;
   simulating: boolean;
+  simulationTop: string;
   rtlRunning: boolean;
   watchMode: boolean;
   hasRunSimulation: boolean;
@@ -27,6 +29,16 @@ export default function RunToolbar(props: RunToolbarProps) {
 
   return (
     <div className="toolbar run-toolbar">
+      {props.hasProject && (
+        <div
+          className="run-targets"
+          title={`RTL uses ${props.designTop || 'no selected design top'}; simulation uses ${props.simulationTop || 'no selected testbench'}`}
+        >
+          <span>Design</span>
+          <strong>{props.designTop || 'Select top'}</strong>
+          {props.simulationTop && <small>Testbench: {props.simulationTop}</small>}
+        </div>
+      )}
       <button
         className="visually-hidden"
         data-testid="save-file"
@@ -76,8 +88,8 @@ export default function RunToolbar(props: RunToolbarProps) {
       <button
         className="icon-action"
         data-testid="open-health"
-        title="Project health and learning"
-        aria-label="Project health and learning"
+        title="Project guide"
+        aria-label="Project guide"
         disabled={!props.hasProject}
         onClick={props.onOpenHealth}
       >
@@ -96,8 +108,8 @@ export default function RunToolbar(props: RunToolbarProps) {
       <button
         className="icon-action"
         data-testid="open-help"
-        title="Beginner guide"
-        aria-label="Beginner guide"
+        title="Help and supported HDL"
+        aria-label="Help and supported HDL"
         onClick={props.onOpenHelp}
       >
         ?

@@ -12,18 +12,18 @@ interface OutputConsoleProps {
 type Diagnostic = ReturnType<typeof parseDiagnostic>;
 
 function presentationFor(line: string, diagnostic: Diagnostic) {
-  if (line.includes('💡')) return { kind: 'translation', label: 'EXPLAIN' };
-  if (diagnostic) return { kind: 'diagnostic', label: 'SOURCE' };
-  if (line.startsWith('$ ')) return { kind: 'command', label: 'RUN' };
+  if (line.includes('💡')) return { kind: 'translation', label: 'INFO' };
+  if (diagnostic) return { kind: 'diagnostic', label: 'OPEN' };
+  if (line.startsWith('$ ')) return { kind: 'command', label: 'COMMAND' };
   if (
-    /^(?:Checking|Starting|Compile finished|Simulation finished|Yosys finished|Opened|Created editable)/.test(
+    /^(?:Checking|Running|Building|Compile|Simulation|RTL schematic|Opened|Created editable)/.test(
       line,
     )
   ) {
-    return { kind: 'summary', label: 'STATUS' };
+    return { kind: 'summary', label: '' };
   }
   if (/\b(?:warning|error|fatal|sorry:)\b/i.test(line)) return { kind: 'warning', label: 'TOOL' };
-  return { kind: 'raw', label: 'RAW' };
+  return { kind: 'raw', label: '' };
 }
 
 function titleFor(mode: ConsoleMode) {
