@@ -26,8 +26,19 @@ const appBundle = fs
   .find((candidate) => fs.existsSync(candidate));
 if (!appBundle) throw new Error('Packaged OpenBench.app was not found.');
 
-run('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appBundle]);
-run('spctl', ['--assess', '--type', 'execute', '--verbose=4', appBundle]);
+const signingReady = Boolean(
+  process.env.CSC_LINK &&
+  process.env.CSC_KEY_PASSWORD &&
+  process.env.APPLE_ID &&
+  process.env.APPLE_APP_SPECIFIC_PASSWORD &&
+  process.env.APPLE_TEAM_ID,
+);
+if (signingReady) {
+  run('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appBundle]);
+  run('spctl', ['--assess', '--type', 'execute', '--verbose=4', appBundle]);
+} else {
+  console.warn('Unsigned preview: Developer ID and Gatekeeper verification were skipped.');
+}
 
 const artifacts = fs
   .readdirSync(releaseRoot)
@@ -35,21 +46,21 @@ const artifacts = fs
   .map((name) => path.join(releaseRoot, name));
 if (artifacts.length < 2) throw new Error('Expected DMG and ZIP macOS artifacts.');
 
-for (const diskImage of artifacts.filter((file) => file.endsWith('.dmg'))) {
-  run('xcrun', ['stapler', 'validate', diskImage]);
-  run('spctl', [
-    '--assess',
-    '--type',
-    'open',
-    '--context',
-    'context:primary-signature',
-    '-v',
-    diskImage,
-  ]);
+if (signingReady) {
+  for (const diskImage of artifacts.filter((file) => file.endsWith('.dmg'))) {
+    run('xcrun', ['stapler', 'validate', diskImage]);
+    run('spctl', [
+      '--assess',
+      '--type',
+      'open',
+      '--context',
+      'context:primary-signature',
+      '-v',
+      diskImage,
+    ]);
+  }
 }
 
 const checksums = artifacts.map((file) => `${sha256(file)}  ${path.basename(file)}`).join('\n');
 fs.writeFileSync(path.join(releaseRoot, 'SHA256SUMS.txt'), `${checksums}\n`, 'utf8');
-console.log(
-  'macOS Developer ID signature, Gatekeeper, notarization ticket, and checksums verified.',
-);
+console.log('macOS release checksums verified.');

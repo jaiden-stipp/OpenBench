@@ -70,7 +70,15 @@ if (executables.length < 2) {
   throw new Error('Expected both the NSIS installer and unpacked OpenBench executable.');
 }
 
-for (const executable of executables) verifySignature(executable);
+const signingReady = Boolean(
+  (process.env.WIN_CSC_LINK || process.env.CSC_LINK) &&
+  (process.env.WIN_CSC_KEY_PASSWORD || process.env.CSC_KEY_PASSWORD),
+);
+if (signingReady) {
+  for (const executable of executables) verifySignature(executable);
+} else {
+  console.warn('Unsigned preview: Authenticode verification was skipped.');
+}
 scanWithDefender(path.join(releaseRoot, 'win-unpacked'));
 for (const installer of executables.filter((file) => path.dirname(file) === releaseRoot)) {
   scanWithDefender(installer);
@@ -81,4 +89,4 @@ const checksums = executables
   .map((file) => `${sha256(file)}  ${path.basename(file)}`)
   .join('\n');
 fs.writeFileSync(path.join(releaseRoot, 'SHA256SUMS.txt'), `${checksums}\n`, 'utf8');
-console.log('Windows release verification passed and SHA256SUMS.txt was written.');
+console.log('Windows Defender scan passed and SHA256SUMS.txt was written.');

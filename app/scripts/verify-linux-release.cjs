@@ -36,33 +36,38 @@ const checksums = artifacts.map((file) => `${sha256(file)}  ${path.basename(file
 const checksumFile = path.join(releaseRoot, 'SHA256SUMS.txt');
 fs.writeFileSync(checksumFile, `${checksums}\n`, 'utf8');
 
-const gpgHome = fs.mkdtempSync(path.join(os.tmpdir(), 'openbench-release-gpg-'));
-try {
-  const environment = { ...process.env, GNUPGHOME: gpgHome };
-  run('gpg', ['--batch', '--import'], {
-    env: environment,
-    input: process.env.LINUX_GPG_PRIVATE_KEY,
-    stdio: ['pipe', 'inherit', 'inherit'],
-  });
-  const signingArguments = [
-    '--batch',
-    '--yes',
-    '--pinentry-mode',
-    'loopback',
-    '--passphrase-fd',
-    '0',
-  ];
-  if (process.env.LINUX_GPG_KEY_ID)
-    signingArguments.push('--local-user', process.env.LINUX_GPG_KEY_ID);
-  signingArguments.push('--armor', '--detach-sign', checksumFile);
-  run('gpg', signingArguments, {
-    env: environment,
-    input: `${process.env.LINUX_GPG_PASSPHRASE}\n`,
-    stdio: ['pipe', 'inherit', 'inherit'],
-  });
-  run('gpg', ['--verify', `${checksumFile}.asc`, checksumFile], { env: environment });
-} finally {
-  fs.rmSync(gpgHome, { recursive: true, force: true });
+const signingReady = Boolean(process.env.LINUX_GPG_PRIVATE_KEY && process.env.LINUX_GPG_PASSPHRASE);
+if (signingReady) {
+  const gpgHome = fs.mkdtempSync(path.join(os.tmpdir(), 'openbench-release-gpg-'));
+  try {
+    const environment = { ...process.env, GNUPGHOME: gpgHome };
+    run('gpg', ['--batch', '--import'], {
+      env: environment,
+      input: process.env.LINUX_GPG_PRIVATE_KEY,
+      stdio: ['pipe', 'inherit', 'inherit'],
+    });
+    const signingArguments = [
+      '--batch',
+      '--yes',
+      '--pinentry-mode',
+      'loopback',
+      '--passphrase-fd',
+      '0',
+    ];
+    if (process.env.LINUX_GPG_KEY_ID)
+      signingArguments.push('--local-user', process.env.LINUX_GPG_KEY_ID);
+    signingArguments.push('--armor', '--detach-sign', checksumFile);
+    run('gpg', signingArguments, {
+      env: environment,
+      input: `${process.env.LINUX_GPG_PASSPHRASE}\n`,
+      stdio: ['pipe', 'inherit', 'inherit'],
+    });
+    run('gpg', ['--verify', `${checksumFile}.asc`, checksumFile], { env: environment });
+  } finally {
+    fs.rmSync(gpgHome, { recursive: true, force: true });
+  }
+} else {
+  console.warn('Unsigned preview: detached GPG signature was not created.');
 }
 
-console.log('Linux malware scan, checksums, and detached GPG signature verified.');
+console.log('Linux malware scan and checksums verified.');

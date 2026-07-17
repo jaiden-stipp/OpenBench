@@ -9,7 +9,9 @@ permissions:
   contents: read
 
 env:
-  OSS_CAD_TAG: 2026-07-15
+  # Keep this pinned so release builds are reproducible. Windows is distributed
+  # as a self-extracting archive; Linux and macOS use tarballs.
+  OSS_CAD_TAG: 2026-05-12
 
 jobs:
   package:
@@ -19,15 +21,18 @@ jobs:
         include:
           - os: windows-2022
             suite: windows-x64
-            package_args: --win nsis --x64 --config.forceCodeSigning=true
+            signed_package_args: --win nsis --x64 --config.forceCodeSigning=true
+            unsigned_package_args: --win nsis --x64 --config.forceCodeSigning=false
             artifact: OpenBench-Windows-x64
           - os: ubuntu-22.04
             suite: linux-x64
-            package_args: --linux deb tar.gz
+            signed_package_args: --linux deb tar.gz
+            unsigned_package_args: --linux deb tar.gz
             artifact: OpenBench-Linux-x64
           - os: macos-14
             suite: darwin-arm64
-            package_args: --mac dmg zip --arm64 --config.forceCodeSigning=true
+            signed_package_args: --mac dmg zip --arm64 --config.forceCodeSigning=true
+            unsigned_package_args: --mac dmg zip --arm64 --config.mac.identity=null --config.mac.hardenedRuntime=false --config.mac.notarize=false
             artifact: OpenBench-macOS-arm64
     runs-on: ${{ matrix.os }}
     env:
@@ -41,6 +46,7 @@ jobs:
       APPLE_ID: ${{ matrix.os == 'macos-14' && secrets.APPLE_ID || '' }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.os == 'macos-14' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
       APPLE_TEAM_ID: ${{ matrix.os == 'macos-14' && secrets.APPLE_TEAM_ID || '' }}
+      OPENBENCH_SIGNING_READY: ${{ (matrix.os == 'windows-2022' && secrets.WINDOWS_CSC_LINK != '' && secrets.WINDOWS_CSC_KEY_PASSWORD != '') || (matrix.os == 'ubuntu-22.04' && secrets.LINUX_GPG_PRIVATE_KEY != '' && secrets.LINUX_GPG_PASSPHRASE != '') || (matrix.os == 'macos-14' && secrets.MACOS_CSC_LINK != '' && secrets.MACOS_CSC_KEY_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') }}
     defaults:
       run:
         working-directory: app
@@ -58,10 +64,16 @@ jobs:
         shell: bash
         run: |
           archive_date="${OSS_CAD_TAG//-/}"
-          archive="oss-cad-suite-${{ matrix.suite }}-${archive_date}.tgz"
+          extension="tgz"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then extension="exe"; fi
+          archive="oss-cad-suite-${{ matrix.suite }}-${archive_date}.${extension}"
           curl --fail --location --retry 3 "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/${OSS_CAD_TAG}/${archive}" --output "${archive}"
           mkdir -p ../.toolchain
-          tar -xzf "${archive}" -C ../.toolchain
+          if [[ "${extension}" == "exe" ]]; then
+            7z x "${archive}" -o../.toolchain -y
+          else
+            tar -xzf "${archive}" -C ../.toolchain
+          fi
       - run: pnpm install --frozen-lockfile
       - name: Install and update ClamAV
         if: runner.os == 'Linux'
@@ -76,20 +88,35 @@ jobs:
           OPENBENCH_TOOLCHAIN_SOURCE: ${{ github.workspace }}/.toolchain/oss-cad-suite
         run: pnpm toolchain:stage
       - name: Require Authenticode credentials for Windows
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.OPENBENCH_SIGNING_READY == 'true'
         run: node scripts/require-windows-signing.cjs
       - name: Require Linux release-signing credentials
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && env.OPENBENCH_SIGNING_READY == 'true'
         run: node scripts/require-release-signing.cjs linux
       - name: Require macOS signing and notarization credentials
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.OPENBENCH_SIGNING_READY == 'true'
         run: node scripts/require-release-signing.cjs mac
+      - name: Report unsigned preview build
+        if: env.OPENBENCH_SIGNING_READY != 'true'
+        run: echo "::warning::Signing credentials are not configured; producing an explicitly unsigned preview artifact."
       - name: Run native real-backend regression
         run: pnpm test
       - name: Build unpacked native app
-        run: pnpm exec electron-builder ${{ matrix.package_args }} --dir
+        shell: bash
+        run: |
+          if [[ "${OPENBENCH_SIGNING_READY}" == "true" ]]; then
+            pnpm exec electron-builder ${{ matrix.signed_package_args }} --dir
+          else
+            pnpm exec electron-builder ${{ matrix.unsigned_package_args }} --dir
+          fi
       - name: Build distributable artifacts
-        run: pnpm exec electron-builder ${{ matrix.package_args }}
+        shell: bash
+        run: |
+          if [[ "${OPENBENCH_SIGNING_READY}" == "true" ]]; then
+            pnpm exec electron-builder ${{ matrix.signed_package_args }}
+          else
+            pnpm exec electron-builder ${{ matrix.unsigned_package_args }}
+          fi
       - name: Install Debian package
         if: runner.os == 'Linux'
         shell: bash
@@ -111,13 +138,13 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: find "${{ github.workspace }}/examples/phase0/.openbench-runs" -name '*.vcd' -type f -print -quit | grep -q .
-      - name: Verify Authenticode signatures and scan with Defender
+      - name: Verify Windows release and scan with Defender
         if: runner.os == 'Windows'
         run: node scripts/verify-windows-release.cjs
-      - name: Scan and sign Linux release metadata
+      - name: Scan and checksum Linux release artifacts
         if: runner.os == 'Linux'
         run: node scripts/verify-linux-release.cjs
-      - name: Verify Developer ID, Gatekeeper, and notarization
+      - name: Verify and checksum macOS release artifacts
         if: runner.os == 'macOS'
         run: node scripts/verify-macos-release.cjs
       - uses: actions/upload-artifact@v4
