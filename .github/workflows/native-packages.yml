@@ -133,7 +133,13 @@ jobs:
             installed_app="/opt/OpenBench/openbench"
           fi
           test -x "$installed_app"
+          set +e
           xvfb-run -a timeout 90s "$installed_app" --disable-gpu --no-sandbox
+          app_status=$?
+          set -e
+          if [[ "$app_status" -ne 0 && "$app_status" -ne 124 ]]; then
+            exit "$app_status"
+          fi
       - name: Verify installed Debian package waveform output
         if: runner.os == 'Linux'
         shell: bash
