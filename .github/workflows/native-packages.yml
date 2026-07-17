@@ -105,17 +105,17 @@ jobs:
         shell: bash
         run: |
           if [[ "${OPENBENCH_SIGNING_READY}" == "true" ]]; then
-            pnpm exec electron-builder ${{ matrix.signed_package_args }} --dir
+            pnpm exec electron-builder ${{ matrix.signed_package_args }} --dir --publish never
           else
-            pnpm exec electron-builder ${{ matrix.unsigned_package_args }} --dir
+            pnpm exec electron-builder ${{ matrix.unsigned_package_args }} --dir --publish never
           fi
       - name: Build distributable artifacts
         shell: bash
         run: |
           if [[ "${OPENBENCH_SIGNING_READY}" == "true" ]]; then
-            pnpm exec electron-builder ${{ matrix.signed_package_args }}
+            pnpm exec electron-builder ${{ matrix.signed_package_args }} --publish never
           else
-            pnpm exec electron-builder ${{ matrix.unsigned_package_args }}
+            pnpm exec electron-builder ${{ matrix.unsigned_package_args }} --publish never
           fi
       - name: Install Debian package
         if: runner.os == 'Linux'
