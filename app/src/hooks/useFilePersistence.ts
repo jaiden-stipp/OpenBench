@@ -5,7 +5,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from 'react';
-import * as localMonaco from 'monaco-editor';
+import { monaco as localMonaco } from '../editor/monaco';
 import { parseDiagnostic } from '../diagnostics';
 import { markSnapshotsSaved, persistDirtyFiles } from '../filePersistence';
 import type { OpenFile } from '../types/ui';
@@ -32,7 +32,9 @@ export function useInlineLint(options: InlineLintOptions) {
         const diagnostics = collectDiagnostics(result.output, normalizedPath);
         const model = localMonaco.editor
           .getModels()
-          .find((item) => normalizePath(item.uri.path.replace(/^\//, '')).endsWith(normalizedPath));
+          .find((item: import('monaco-editor').editor.ITextModel) =>
+            normalizePath(item.uri.path.replace(/^\//, '')).endsWith(normalizedPath),
+          );
         if (model) localMonaco.editor.setModelMarkers(model, 'openbench-inline-lint', diagnostics);
         setLintStatus(diagnostics.length || result.code !== 0 ? 'issues' : 'clean');
       } catch {

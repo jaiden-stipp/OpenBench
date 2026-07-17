@@ -1,6 +1,6 @@
 import type { BeforeMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import * as localMonaco from 'monaco-editor';
+import { monaco as localMonaco } from './monaco';
 
 import type { SourceConcept } from '../types/ui';
 

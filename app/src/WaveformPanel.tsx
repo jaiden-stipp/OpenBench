@@ -1,59 +1,87 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { VcdData, VcdSignal } from './vcdParser.js';
-import { formatVcdValue, valueAt } from './vcdParser.js';
 import { drawWaveforms, HEADER_HEIGHT, ROW_HEIGHT } from './waveformRenderer';
 import { adjacentTransitionTime, formatSimulationTime, hasChangeInRange } from './waveformMath.js';
+import WaveformSignalList, {
+  type SignalView,
+  type VisibleSignal,
+} from './components/WaveformSignalList';
 
-type Radix = 'bin' | 'hex' | 'dec';
-type SignalView = { key: string; radix: Radix; group: string; selected: boolean };
-type VisibleSignal = SignalView & { signal: VcdSignal };
 type SignalPreset = 'all' | 'essentials' | 'clocks-resets' | 'selected';
-
-export default function WaveformPanel({
-  data,
-  name,
-  runs = [],
-  probeSignal,
-  onSignalNavigate,
-  onLoadRun,
-  theme = 'dark',
-  displayOptions = { highContrast: false, largeText: false },
-  breakpoints,
-  onBreakpointsChange,
-  breakpointSupported,
-  initialSession,
-  onSessionChange,
-}: {
+type SimulationRun = {
+  id: string;
+  name: string;
+  createdAt: number;
+  data?: VcdData;
+  files: Record<string, string>;
+  fileName?: string;
+  size?: number;
+  loading?: boolean;
+};
+type Props = {
   data: VcdData | null;
   name: string | null;
-  runs?: Array<{
-    id: string;
-    name: string;
-    createdAt: number;
-    data?: VcdData;
-    files: Record<string, string>;
-    fileName?: string;
-    size?: number;
-    loading?: boolean;
-  }>;
+  runs?: SimulationRun[];
   probeSignal?: string | null;
   onSignalNavigate?: (signal: VcdSignal) => void;
   onLoadRun?: (runId: string, open?: boolean) => Promise<void>;
   theme?: 'dark' | 'light';
   displayOptions?: { highContrast: boolean; largeText: boolean };
   breakpoints: WaveBreakpoint[];
-  onBreakpointsChange: (breakpoints: WaveBreakpoint[]) => void;
+  onBreakpointsChange: (items: WaveBreakpoint[]) => void;
   breakpointSupported: boolean;
   initialSession?: WaveformSession | null;
   onSessionChange?: (session: WaveformSession) => void;
-}) {
+};
+
+export default function WaveformPanel(props: Props) {
+  const runs = props.runs || [];
+  const controls = useWaveformControls(props.initialSession);
+  useSessionSynchronization(props, controls);
+  useProbeSynchronization(props.probeSignal, controls);
+  const derived = useWaveformDerived(props.data, runs, controls);
+  useCanvasRendering(props, controls, derived);
+  useViewportInput(props.data, controls);
+  const actions = useWaveformActions(props.data, controls, derived);
+  if (!props.data) return <EmptyWaveform runs={runs} onLoadRun={props.onLoadRun} />;
+  return (
+    <div className="waveform-panel">
+      <WaveformToolbar
+        data={props.data}
+        name={props.name}
+        breakpoints={props.breakpoints}
+        controls={controls}
+        derived={derived}
+        actions={actions}
+      />
+      {controls.advancedTools && (
+        <AdvancedWaveformTools
+          data={props.data}
+          runs={runs}
+          onLoadRun={props.onLoadRun}
+          controls={controls}
+          derived={derived}
+          actions={actions}
+        />
+      )}
+      <WaveformGrid
+        {...props}
+        data={props.data}
+        controls={controls}
+        derived={derived}
+        actions={actions}
+      />
+    </div>
+  );
+}
+
+function useWaveformControls(initialSession?: WaveformSession | null) {
   const [views, setViews] = useState<SignalView[]>([]);
   const [search, setSearch] = useState('');
   const [preset, setPreset] = useState<SignalPreset>('all');
   const [groupFilter, setGroupFilter] = useState('All groups');
   const [groupName, setGroupName] = useState('');
   const [viewport, setViewport] = useState({ start: 0, end: 1 });
-  const { start: viewStart, end: viewEnd } = viewport;
   const [cursor, setCursor] = useState(0);
   const [cursorB, setCursorB] = useState<number | null>(null);
   const [activeCursor, setActiveCursor] = useState<'A' | 'B'>('A');
@@ -65,34 +93,88 @@ export default function WaveformPanel({
   const [breakpointValue, setBreakpointValue] = useState('1');
   const [logicHelp, setLogicHelp] = useState<string | null>(null);
   const [advancedTools, setAdvancedTools] = useState(false);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(480);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const dragKey = useRef<string | null>(null);
   const wheelFrame = useRef<number | null>(null);
   const pendingViewport = useRef(viewport);
   const initialSessionRef = useRef(initialSession);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(480);
+  return {
+    views,
+    setViews,
+    search,
+    setSearch,
+    preset,
+    setPreset,
+    groupFilter,
+    setGroupFilter,
+    groupName,
+    setGroupName,
+    viewport,
+    setViewport,
+    cursor,
+    setCursor,
+    cursorB,
+    setCursorB,
+    activeCursor,
+    setActiveCursor,
+    bookmarks,
+    setBookmarks,
+    bookmarkName,
+    setBookmarkName,
+    changedOnly,
+    setChangedOnly,
+    compareRunId,
+    setCompareRunId,
+    editingBreakpoint,
+    setEditingBreakpoint,
+    breakpointValue,
+    setBreakpointValue,
+    logicHelp,
+    setLogicHelp,
+    advancedTools,
+    setAdvancedTools,
+    scrollTop,
+    setScrollTop,
+    viewportHeight,
+    setViewportHeight,
+    canvasRef,
+    gridRef,
+    dragKey,
+    wheelFrame,
+    pendingViewport,
+    initialSessionRef,
+  };
+}
 
-  useEffect(() => {
-    pendingViewport.current = viewport;
-  }, [viewport]);
+type Controls = ReturnType<typeof useWaveformControls>;
 
+function useSessionSynchronization(props: Props, controls: Controls) {
+  const controlsRef = useRef(controls);
+  const propsRef = useRef(props);
+  controlsRef.current = controls;
+  propsRef.current = props;
   useEffect(() => {
-    initialSessionRef.current = initialSession;
-  }, [initialSession]);
-
+    controls.pendingViewport.current = controls.viewport;
+  }, [controls.pendingViewport, controls.viewport]);
   useEffect(() => {
-    if (!data) return;
-    const session = initialSessionRef.current;
-    const defaults = data.signals.map((signal) => ({
+    controls.initialSessionRef.current = props.initialSession;
+  }, [controls.initialSessionRef, props.initialSession]);
+  useEffect(() => {
+    const controls = controlsRef.current;
+    const props = propsRef.current;
+    if (!props.data) return;
+    const session = controls.initialSessionRef.current;
+    const defaults = props.data.signals.map((signal) => ({
       key: signal.key,
       radix: signal.width > 4 ? ('hex' as const) : ('bin' as const),
       group: signal.scope || 'Top',
       selected: false,
     }));
     const restored = new Map(session?.views.map((view) => [view.key, view]) || []);
-    setViews(
+    controls.setViews(
       defaults
         .map((view) => (restored.has(view.key) ? { ...view, ...restored.get(view.key)! } : view))
         .sort(
@@ -101,51 +183,67 @@ export default function WaveformPanel({
             (session?.views.findIndex((view) => view.key === b.key) ?? 9999),
         ),
     );
-    const fullEnd = Math.max(1, data.endTime);
-    setSearch(session?.search || '');
-    setPreset(session?.preset || (data.signals.length > 32 ? 'essentials' : 'all'));
-    setGroupFilter(session?.groupFilter || 'All groups');
-    setViewport({
+    const fullEnd = Math.max(1, props.data.endTime);
+    controls.setSearch(session?.search || '');
+    controls.setPreset(session?.preset || (props.data.signals.length > 32 ? 'essentials' : 'all'));
+    controls.setGroupFilter(session?.groupFilter || 'All groups');
+    controls.setViewport({
       start: Math.max(0, Math.min(fullEnd - 1, session?.viewStart ?? 0)),
       end: Math.max(1, Math.min(fullEnd, session?.viewEnd ?? fullEnd)),
     });
-    setCursor(Math.max(0, Math.min(fullEnd, session?.cursor ?? 0)));
-    setCursorB(session?.cursorB == null ? null : Math.max(0, Math.min(fullEnd, session.cursorB)));
-    setBookmarks(session?.bookmarks || []);
-  }, [data]);
-
+    controls.setCursor(Math.max(0, Math.min(fullEnd, session?.cursor ?? 0)));
+    controls.setCursorB(
+      session?.cursorB == null ? null : Math.max(0, Math.min(fullEnd, session.cursorB)),
+    );
+    controls.setBookmarks(session?.bookmarks || []);
+  }, [
+    props.data,
+    controls.initialSessionRef,
+    controls.setBookmarks,
+    controls.setCursor,
+    controls.setCursorB,
+    controls.setGroupFilter,
+    controls.setPreset,
+    controls.setSearch,
+    controls.setViewport,
+    controls.setViews,
+  ]);
   useEffect(() => {
-    if (!data || !views.length) return;
+    const controls = controlsRef.current;
+    const props = propsRef.current;
+    if (!props.data || !controls.views.length) return;
     const timer = setTimeout(
       () =>
-        onSessionChange?.({
-          views,
-          search,
-          groupFilter,
-          viewStart,
-          viewEnd,
-          cursor,
-          cursorB,
-          bookmarks,
-          preset,
+        props.onSessionChange?.({
+          views: controls.views,
+          search: controls.search,
+          groupFilter: controls.groupFilter,
+          viewStart: controls.viewport.start,
+          viewEnd: controls.viewport.end,
+          cursor: controls.cursor,
+          cursorB: controls.cursorB,
+          bookmarks: controls.bookmarks,
+          preset: controls.preset,
         }),
       100,
     );
     return () => clearTimeout(timer);
   }, [
-    bookmarks,
-    cursor,
-    cursorB,
-    data,
-    groupFilter,
-    onSessionChange,
-    preset,
-    search,
-    viewEnd,
-    viewStart,
-    views,
+    controls.bookmarks,
+    controls.cursor,
+    controls.cursorB,
+    controls.groupFilter,
+    controls.preset,
+    controls.search,
+    controls.viewport,
+    controls.views,
+    props.data,
+    props.onSessionChange,
   ]);
+}
 
+function useProbeSynchronization(probeSignal: string | null | undefined, controls: Controls) {
+  const { setGroupFilter, setSearch } = controls;
   useEffect(() => {
     if (!probeSignal) return;
     setSearch(
@@ -156,81 +254,90 @@ export default function WaveformPanel({
         .at(-1) || probeSignal,
     );
     setGroupFilter('All groups');
-  }, [probeSignal]);
+  }, [probeSignal, setGroupFilter, setSearch]);
+}
 
+function useWaveformDerived(data: VcdData | null, runs: SimulationRun[], controls: Controls) {
   const signalMap = useMemo(
     () => new Map(data?.signals.map((signal) => [signal.key, signal]) || []),
     [data],
   );
   const groups = useMemo(
-    () => ['All groups', ...Array.from(new Set(views.map((view) => view.group)))],
-    [views],
+    () => ['All groups', ...Array.from(new Set(controls.views.map((view) => view.group)))],
+    [controls.views],
   );
   const visibleSignals = useMemo<VisibleSignal[]>(
     () =>
-      views.flatMap((view) => {
+      controls.views.flatMap((view) => {
         const signal = signalMap.get(view.key);
-        if (!signal || !signal.path.toLowerCase().includes(search.toLowerCase())) return [];
-        if (!matchesPreset(signal, view, preset)) return [];
-        if (groupFilter !== 'All groups' && view.group !== groupFilter) return [];
-        if (changedOnly && !hasChangeInRange(signal.changes, viewStart, viewEnd)) return [];
+        if (!signal || !signal.path.toLowerCase().includes(controls.search.toLowerCase()))
+          return [];
+        if (!matchesPreset(signal, view, controls.preset)) return [];
+        if (controls.groupFilter !== 'All groups' && view.group !== controls.groupFilter) return [];
+        if (
+          controls.changedOnly &&
+          !hasChangeInRange(signal.changes, controls.viewport.start, controls.viewport.end)
+        )
+          return [];
         return [{ ...view, signal }];
       }),
-    [changedOnly, groupFilter, preset, search, signalMap, viewEnd, viewStart, views],
+    [
+      controls.changedOnly,
+      controls.groupFilter,
+      controls.preset,
+      controls.search,
+      controls.viewport,
+      controls.views,
+      signalMap,
+    ],
   );
   const virtualRange = useMemo(() => {
-    const overscan = 5;
-    const first = Math.max(0, Math.floor((scrollTop - HEADER_HEIGHT) / ROW_HEIGHT) - overscan);
+    const first = Math.max(0, Math.floor((controls.scrollTop - HEADER_HEIGHT) / ROW_HEIGHT) - 5);
     const last = Math.min(
       visibleSignals.length,
-      Math.ceil((scrollTop + viewportHeight - HEADER_HEIGHT) / ROW_HEIGHT) + overscan,
+      Math.ceil((controls.scrollTop + controls.viewportHeight - HEADER_HEIGHT) / ROW_HEIGHT) + 5,
     );
     return { first, last, signals: visibleSignals.slice(first, last) };
-  }, [scrollTop, viewportHeight, visibleSignals]);
-
-  const compareRun = runs.find((run) => run.id === compareRunId);
+  }, [controls.scrollTop, controls.viewportHeight, visibleSignals]);
+  const compareRun = runs.find((run) => run.id === controls.compareRunId);
   const compareByPath = useMemo(
     () => new Map(compareRun?.data?.signals.map((signal) => [signal.path, signal]) || []),
     [compareRun],
   );
+  return { signalMap, groups, visibleSignals, virtualRange, compareByPath };
+}
 
+type Derived = ReturnType<typeof useWaveformDerived>;
+
+function useCanvasRendering(props: Props, controls: Controls, derived: Derived) {
+  const controlsRef = useRef(controls);
+  const propsRef = useRef(props);
+  controlsRef.current = controls;
+  propsRef.current = props;
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !data) return;
-    let frame = requestAnimationFrame(() =>
+    const controls = controlsRef.current;
+    const props = propsRef.current;
+    const canvas = controls.canvasRef.current;
+    if (!canvas || !props.data) return;
+    const render = () =>
       drawWaveforms({
         canvas,
-        signals: virtualRange.signals,
-        data,
-        viewStart,
-        viewEnd,
-        cursor,
-        cursorB,
-        bookmarks,
-        theme,
-        displayOptions,
-        viewportHeight,
-        rowOffset: virtualRange.first,
-      }),
-    );
+        signals: derived.virtualRange.signals,
+        data: props.data!,
+        viewStart: controls.viewport.start,
+        viewEnd: controls.viewport.end,
+        cursor: controls.cursor,
+        cursorB: controls.cursorB,
+        bookmarks: controls.bookmarks,
+        theme: props.theme || 'dark',
+        displayOptions: props.displayOptions || { highContrast: false, largeText: false },
+        viewportHeight: controls.viewportHeight,
+        rowOffset: derived.virtualRange.first,
+      });
+    let frame = requestAnimationFrame(render);
     const redraw = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() =>
-        drawWaveforms({
-          canvas,
-          signals: virtualRange.signals,
-          data,
-          viewStart,
-          viewEnd,
-          cursor,
-          cursorB,
-          bookmarks,
-          theme,
-          displayOptions,
-          viewportHeight,
-          rowOffset: virtualRange.first,
-        }),
-      );
+      frame = requestAnimationFrame(render);
     };
     const observer = new ResizeObserver(redraw);
     if (canvas.parentElement) observer.observe(canvas.parentElement);
@@ -239,35 +346,40 @@ export default function WaveformPanel({
       observer.disconnect();
     };
   }, [
-    bookmarks,
-    cursor,
-    cursorB,
-    data,
-    displayOptions,
-    theme,
-    viewEnd,
-    viewStart,
-    viewportHeight,
-    virtualRange,
+    controls.bookmarks,
+    controls.canvasRef,
+    controls.cursor,
+    controls.cursorB,
+    controls.viewport,
+    controls.viewportHeight,
+    derived.virtualRange,
+    props.data,
+    props.displayOptions,
+    props.theme,
   ]);
-
   useEffect(() => {
-    const grid = gridRef.current;
+    const controls = controlsRef.current;
+    const grid = controls.gridRef.current;
     if (!grid) return;
-    const update = () => setViewportHeight(grid.clientHeight);
+    const update = () => controls.setViewportHeight(grid.clientHeight);
     update();
     const observer = new ResizeObserver(update);
     observer.observe(grid);
     return () => observer.disconnect();
-  }, []);
+  }, [controls.gridRef, controls.setViewportHeight]);
+}
 
+function useViewportInput(data: VcdData | null, controls: Controls) {
+  const controlsRef = useRef(controls);
+  controlsRef.current = controls;
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const controls = controlsRef.current;
+    const canvas = controls.canvasRef.current;
     if (!canvas || !data) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      const fullEnd = Math.max(1, data.endTime);
-      const current = pendingViewport.current;
+      const fullEnd = Math.max(1, data.endTime),
+        current = controls.pendingViewport.current;
       const span = Math.max(1, current.end - current.start);
       let next;
       if (event.shiftKey) {
@@ -282,491 +394,434 @@ export default function WaveformPanel({
         start = Math.max(0, Math.min(fullEnd - nextSpan, start));
         next = { start, end: start + nextSpan };
       }
-      pendingViewport.current = next;
-      if (wheelFrame.current === null)
-        wheelFrame.current = requestAnimationFrame(() => {
-          wheelFrame.current = null;
-          setViewport(pendingViewport.current);
+      controls.pendingViewport.current = next;
+      if (controls.wheelFrame.current === null)
+        controls.wheelFrame.current = requestAnimationFrame(() => {
+          controls.wheelFrame.current = null;
+          controls.setViewport(controls.pendingViewport.current);
         });
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       canvas.removeEventListener('wheel', onWheel);
-      if (wheelFrame.current !== null) cancelAnimationFrame(wheelFrame.current);
-      wheelFrame.current = null;
+      if (controls.wheelFrame.current !== null) cancelAnimationFrame(controls.wheelFrame.current);
+      controls.wheelFrame.current = null;
     };
-  }, [data]);
-
+  }, [
+    controls.canvasRef,
+    controls.pendingViewport,
+    controls.setViewport,
+    controls.wheelFrame,
+    data,
+  ]);
   useEffect(() => {
+    const controls = controlsRef.current;
     const onZoom = (event: Event) => {
       if (!data) return;
-      const factor = (event as CustomEvent<number>).detail;
-      const fullEnd = Math.max(1, data.endTime);
-      const span = viewEnd - viewStart;
-      const nextSpan = Math.max(1, Math.min(fullEnd, span * factor));
-      const center = (viewStart + viewEnd) / 2;
-      const start = Math.max(0, Math.min(fullEnd - nextSpan, center - nextSpan / 2));
-      setViewport({ start, end: start + nextSpan });
+      const fullEnd = Math.max(1, data.endTime),
+        span = controls.viewport.end - controls.viewport.start;
+      const nextSpan = Math.max(1, Math.min(fullEnd, span * (event as CustomEvent<number>).detail));
+      const start = Math.max(
+        0,
+        Math.min(
+          fullEnd - nextSpan,
+          (controls.viewport.start + controls.viewport.end) / 2 - nextSpan / 2,
+        ),
+      );
+      controls.setViewport({ start, end: start + nextSpan });
     };
     window.addEventListener('rtlbench:wave-zoom', onZoom);
     return () => window.removeEventListener('rtlbench:wave-zoom', onZoom);
-  }, [data, viewEnd, viewStart]);
+  }, [controls.setViewport, controls.viewport, data]);
+}
 
-  if (!data)
-    return (
-      <div className="wave-empty">
-        <div className="chip">VCD</div>
-        <h1>No waveform loaded</h1>
-        <p>Run a simulation, or reopen a recent trace without rerunning the design.</p>
-        {runs.length > 0 && (
-          <div className="recent-waveforms">
-            <strong>Recent traces</strong>
-            {runs.slice(0, 4).map((run) => (
-              <button
-                key={run.id}
-                disabled={run.loading}
-                onClick={() => void onLoadRun?.(run.id, true)}
-              >
-                <span>{run.loading ? 'Loading…' : run.name}</span>
-                <small>{formatFileSize(run.size || 0)}</small>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-
+function useWaveformActions(data: VcdData | null, controls: Controls, derived: Derived) {
   const zoom = (factor: number) => {
-    const fullEnd = Math.max(1, data.endTime);
-    const span = viewEnd - viewStart;
+    if (!data) return;
+    const fullEnd = Math.max(1, data.endTime),
+      span = controls.viewport.end - controls.viewport.start;
     const nextSpan = Math.max(1, Math.min(fullEnd, span * factor));
-    const center = (viewStart + viewEnd) / 2;
-    const start = Math.max(0, Math.min(fullEnd - nextSpan, center - nextSpan / 2));
-    setViewport({ start, end: start + nextSpan });
+    const start = Math.max(
+      0,
+      Math.min(
+        fullEnd - nextSpan,
+        (controls.viewport.start + controls.viewport.end) / 2 - nextSpan / 2,
+      ),
+    );
+    controls.setViewport({ start, end: start + nextSpan });
   };
-
   const reorder = (targetKey: string) => {
-    if (!dragKey.current || dragKey.current === targetKey) return;
-    setViews((current) => {
-      const source = current.findIndex((view) => view.key === dragKey.current);
-      const target = current.findIndex((view) => view.key === targetKey);
+    if (!controls.dragKey.current || controls.dragKey.current === targetKey) return;
+    controls.setViews((current) => {
+      const source = current.findIndex((view) => view.key === controls.dragKey.current),
+        target = current.findIndex((view) => view.key === targetKey);
       if (source < 0 || target < 0) return current;
-      const next = [...current];
-      const [moved] = next.splice(source, 1);
+      const next = [...current],
+        [moved] = next.splice(source, 1);
       next.splice(target, 0, moved);
       return next;
     });
   };
-
   const applyGroup = () => {
-    const cleanName = groupName.trim();
-    if (!cleanName) return;
-    setViews((current) =>
-      current.map((view) =>
-        view.selected ? { ...view, group: cleanName, selected: false } : view,
-      ),
+    const name = controls.groupName.trim();
+    if (!name) return;
+    controls.setViews((current) =>
+      current.map((view) => (view.selected ? { ...view, group: name, selected: false } : view)),
     );
-    setGroupName('');
+    controls.setGroupName('');
   };
-
   const jumpEdge = (direction: -1 | 1) => {
-    const selected = views.find((view) => view.selected);
-    const signal = selected ? signalMap.get(selected.key) : visibleSignals[0]?.signal;
+    const selected = controls.views.find((view) => view.selected);
+    const signal = selected
+      ? derived.signalMap.get(selected.key)
+      : derived.visibleSignals[0]?.signal;
     if (!signal) return;
-    const next = adjacentTransitionTime(signal.changes, cursor, direction);
-    if (next !== undefined) setCursor(next);
+    const next = adjacentTransitionTime(signal.changes, controls.cursor, direction);
+    if (next !== undefined) controls.setCursor(next);
   };
-  const delta = cursorB === null ? null : Math.abs(cursorB - cursor);
-  const timescaleMatch = data.timescale.match(/([\d.]+)\s*(s|ms|us|ns|ps|fs)/i);
-  const unitSeconds: Record<string, number> = {
-    s: 1,
-    ms: 1e-3,
-    us: 1e-6,
-    ns: 1e-9,
-    ps: 1e-12,
-    fs: 1e-15,
-  };
-  const frequency =
-    delta && timescaleMatch
-      ? 1 / (delta * Number(timescaleMatch[1]) * unitSeconds[timescaleMatch[2].toLowerCase()])
-      : null;
-  const frequencyLabel = frequency
-    ? frequency >= 1e9
-      ? `${(frequency / 1e9).toFixed(3)} GHz`
-      : frequency >= 1e6
-        ? `${(frequency / 1e6).toFixed(3)} MHz`
-        : frequency >= 1e3
-          ? `${(frequency / 1e3).toFixed(3)} kHz`
-          : `${frequency.toFixed(3)} Hz`
-    : '';
+  return { zoom, reorder, applyGroup, jumpEdge };
+}
 
+type Actions = ReturnType<typeof useWaveformActions>;
+
+function EmptyWaveform({
+  runs,
+  onLoadRun,
+}: {
+  runs: SimulationRun[];
+  onLoadRun?: Props['onLoadRun'];
+}) {
   return (
-    <div className="waveform-panel">
-      <div className="wave-toolbar">
-        <strong>{name}</strong>
-        <span>{data.signals.length} signals</span>
-        <span>{data.timestampCount.toLocaleString()} timestamps</span>
-        <span>Timescale {data.timescale}</span>
-        {breakpoints.length > 0 && (
-          <span className="breakpoint-count">
-            {breakpoints.length} compiled stop{breakpoints.length === 1 ? '' : 's'}
-          </span>
-        )}
-        <input
-          aria-label="Search signals"
-          placeholder="Signal or hierarchy"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <select
-          aria-label="Signal set"
-          value={preset}
-          onChange={(event) => setPreset(event.target.value as SignalPreset)}
-        >
-          <option value="all">All signals</option>
-          <option value="essentials">Key signals</option>
-          <option value="clocks-resets">Clocks & resets</option>
-          <option value="selected">Selected only</option>
-        </select>
-        <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
-          {groups.map((group) => (
-            <option key={group}>{group}</option>
+    <div className="wave-empty">
+      <div className="chip">VCD</div>
+      <h1>No waveform loaded</h1>
+      <p>Run a simulation, or reopen a recent trace without rerunning the design.</p>
+      {runs.length > 0 && (
+        <div className="recent-waveforms">
+          <strong>Recent traces</strong>
+          {runs.slice(0, 4).map((run) => (
+            <button
+              key={run.id}
+              disabled={run.loading}
+              onClick={() => void onLoadRun?.(run.id, true)}
+            >
+              <span>{run.loading ? 'Loading…' : run.name}</span>
+              <small>{formatFileSize(run.size || 0)}</small>
+            </button>
           ))}
-        </select>
-        <button onClick={() => zoom(0.5)}>Zoom +</button>
-        <button onClick={() => zoom(2)}>Zoom −</button>
-        <button
-          onClick={() => {
-            setViewport({ start: 0, end: Math.max(1, data.endTime) });
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WaveformToolbar({
+  data,
+  name,
+  breakpoints,
+  controls,
+  derived,
+  actions,
+}: {
+  data: VcdData;
+  name: string | null;
+  breakpoints: WaveBreakpoint[];
+  controls: Controls;
+  derived: Derived;
+  actions: Actions;
+}) {
+  return (
+    <div className="wave-toolbar">
+      <strong>{name}</strong>
+      <span>{data.signals.length} signals</span>
+      <span>{data.timestampCount.toLocaleString()} timestamps</span>
+      <span>Timescale {data.timescale}</span>
+      {breakpoints.length > 0 && (
+        <span className="breakpoint-count">
+          {breakpoints.length} compiled stop{breakpoints.length === 1 ? '' : 's'}
+        </span>
+      )}
+      <input
+        aria-label="Search signals"
+        placeholder="Signal or hierarchy"
+        value={controls.search}
+        onChange={(event) => controls.setSearch(event.target.value)}
+      />
+      <select
+        aria-label="Signal set"
+        value={controls.preset}
+        onChange={(event) => controls.setPreset(event.target.value as SignalPreset)}
+      >
+        <option value="all">All signals</option>
+        <option value="essentials">Key signals</option>
+        <option value="clocks-resets">Clocks & resets</option>
+        <option value="selected">Selected only</option>
+      </select>
+      <select
+        value={controls.groupFilter}
+        onChange={(event) => controls.setGroupFilter(event.target.value)}
+      >
+        {derived.groups.map((group) => (
+          <option key={group}>{group}</option>
+        ))}
+      </select>
+      <button onClick={() => actions.zoom(0.5)}>Zoom +</button>
+      <button onClick={() => actions.zoom(2)}>Zoom −</button>
+      <button onClick={() => controls.setViewport({ start: 0, end: Math.max(1, data.endTime) })}>
+        Full
+      </button>
+      <button
+        className={controls.advancedTools ? 'active' : ''}
+        onClick={() => controls.setAdvancedTools((value) => !value)}
+      >
+        {controls.advancedTools ? 'Hide' : 'Show'} advanced tools
+      </button>
+    </div>
+  );
+}
+
+function AdvancedWaveformTools({
+  data,
+  runs,
+  onLoadRun,
+  controls,
+  derived,
+  actions,
+}: {
+  data: VcdData;
+  runs: SimulationRun[];
+  onLoadRun?: Props['onLoadRun'];
+  controls: Controls;
+  derived: Derived;
+  actions: Actions;
+}) {
+  return (
+    <>
+      <GroupToolbar controls={controls} actions={actions} />
+      <MeasurementToolbar
+        data={data}
+        runs={runs}
+        onLoadRun={onLoadRun}
+        controls={controls}
+        derived={derived}
+        actions={actions}
+      />
+    </>
+  );
+}
+
+function GroupToolbar({ controls, actions }: { controls: Controls; actions: Actions }) {
+  return (
+    <div className="group-toolbar">
+      <span>Group selected:</span>
+      <input
+        placeholder="Group name"
+        value={controls.groupName}
+        onChange={(event) => controls.setGroupName(event.target.value)}
+      />
+      <button
+        disabled={!controls.groupName.trim() || !controls.views.some((view) => view.selected)}
+        onClick={actions.applyGroup}
+      >
+        Apply
+      </button>
+      <span className="hint">Wheel: zoom · Shift+wheel: pan · Click trace: cursor</span>
+    </div>
+  );
+}
+
+function MeasurementToolbar({
+  data,
+  runs,
+  onLoadRun,
+  controls,
+  actions,
+}: {
+  data: VcdData;
+  runs: SimulationRun[];
+  onLoadRun?: Props['onLoadRun'];
+  controls: Controls;
+  derived: Derived;
+  actions: Actions;
+}) {
+  const delta = controls.cursorB === null ? null : Math.abs(controls.cursorB - controls.cursor);
+  const frequency = frequencyLabel(delta, data.timescale);
+  return (
+    <div className="measurement-toolbar">
+      <button
+        className={controls.activeCursor === 'A' ? 'active' : ''}
+        onClick={() => controls.setActiveCursor('A')}
+      >
+        Place A
+      </button>
+      <button
+        className={controls.activeCursor === 'B' ? 'active' : ''}
+        onClick={() => controls.setActiveCursor('B')}
+      >
+        Place B
+      </button>
+      <span className="measurement-readout">
+        A {formatSimulationTime(controls.cursor, data.timescale)}
+        {controls.cursorB !== null && (
+          <>
+            {' '}
+            · B {formatSimulationTime(controls.cursorB, data.timescale)} · Δ{' '}
+            {formatSimulationTime(delta!, data.timescale)}
+            {frequency && ` · ${frequency}`}
+          </>
+        )}
+      </span>
+      <button
+        title="Previous transition on the first selected signal"
+        onClick={() => actions.jumpEdge(-1)}
+      >
+        ← edge
+      </button>
+      <button
+        title="Next transition on the first selected signal"
+        onClick={() => actions.jumpEdge(1)}
+      >
+        edge →
+      </button>
+      <label>
+        <input
+          type="checkbox"
+          checked={controls.changedOnly}
+          onChange={(event) => controls.setChangedOnly(event.target.checked)}
+        />{' '}
+        Changed here
+      </label>
+      <BookmarkControls controls={controls} timescale={data.timescale} />
+      <RunComparison data={data} runs={runs} controls={controls} onLoadRun={onLoadRun} />
+    </div>
+  );
+}
+
+function BookmarkControls({ controls, timescale }: { controls: Controls; timescale: string }) {
+  const add = () => {
+    controls.setBookmarks((current) => [
+      ...current,
+      {
+        time: controls.cursor,
+        label: controls.bookmarkName.trim() || `Time ${Math.round(controls.cursor)}`,
+      },
+    ]);
+    controls.setBookmarkName('');
+  };
+  return (
+    <>
+      <input
+        aria-label="Bookmark name"
+        placeholder="Bookmark name"
+        value={controls.bookmarkName}
+        onChange={(event) => controls.setBookmarkName(event.target.value)}
+      />
+      <button onClick={add}>Add mark</button>
+      {controls.bookmarks.length > 0 && (
+        <select
+          aria-label="Jump to bookmark"
+          defaultValue=""
+          onChange={(event) => {
+            const mark = controls.bookmarks[Number(event.target.value)];
+            if (mark) controls.setCursor(mark.time);
+            event.target.value = '';
           }}
         >
-          Full
-        </button>
-        <button
-          className={advancedTools ? 'active' : ''}
-          onClick={() => setAdvancedTools((value) => !value)}
-        >
-          {advancedTools ? 'Hide' : 'Show'} advanced tools
-        </button>
-      </div>
-      {advancedTools && (
-        <div className="group-toolbar">
-          <span>Group selected:</span>
-          <input
-            placeholder="Group name"
-            value={groupName}
-            onChange={(event) => setGroupName(event.target.value)}
-          />
-          <button
-            disabled={!groupName.trim() || !views.some((view) => view.selected)}
-            onClick={applyGroup}
-          >
-            Apply
-          </button>
-          <span className="hint">Wheel: zoom · Shift+wheel: pan · Click trace: cursor</span>
-        </div>
+          <option value="">Bookmarks ({controls.bookmarks.length})</option>
+          {controls.bookmarks.map((mark, index) => (
+            <option key={`${mark.time}-${index}`} value={index}>
+              {mark.label} · {formatSimulationTime(mark.time, timescale)}
+            </option>
+          ))}
+        </select>
       )}
-      {advancedTools && (
-        <div className="measurement-toolbar">
-          <button
-            className={activeCursor === 'A' ? 'active' : ''}
-            onClick={() => setActiveCursor('A')}
-          >
-            Place A
-          </button>
-          <button
-            className={activeCursor === 'B' ? 'active' : ''}
-            onClick={() => setActiveCursor('B')}
-          >
-            Place B
-          </button>
-          <span className="measurement-readout">
-            A {formatSimulationTime(cursor, data.timescale)}
-            {cursorB !== null && (
-              <>
-                {' '}
-                · B {formatSimulationTime(cursorB, data.timescale)} · Δ{' '}
-                {formatSimulationTime(delta!, data.timescale)}
-                {frequencyLabel && ` · ${frequencyLabel}`}
-              </>
-            )}
-          </span>
-          <button
-            title="Previous transition on the first selected signal"
-            onClick={() => jumpEdge(-1)}
-          >
-            ← edge
-          </button>
-          <button title="Next transition on the first selected signal" onClick={() => jumpEdge(1)}>
-            edge →
-          </button>
-          <label>
-            <input
-              type="checkbox"
-              checked={changedOnly}
-              onChange={(event) => setChangedOnly(event.target.checked)}
-            />{' '}
-            Changed here
-          </label>
-          <input
-            aria-label="Bookmark name"
-            placeholder="Bookmark name"
-            value={bookmarkName}
-            onChange={(event) => setBookmarkName(event.target.value)}
-          />
-          <button
-            onClick={() => {
-              setBookmarks((current) => [
-                ...current,
-                { time: cursor, label: bookmarkName.trim() || `Time ${Math.round(cursor)}` },
-              ]);
-              setBookmarkName('');
-            }}
-          >
-            Add mark
-          </button>
-          {bookmarks.length > 0 && (
-            <select
-              aria-label="Jump to bookmark"
-              defaultValue=""
-              onChange={(event) => {
-                const mark = bookmarks[Number(event.target.value)];
-                if (mark) setCursor(mark.time);
-                event.target.value = '';
-              }}
-            >
-              <option value="">Bookmarks ({bookmarks.length})</option>
-              {bookmarks.map((mark, index) => (
-                <option key={`${mark.time}-${index}`} value={index}>
-                  {mark.label} · {formatSimulationTime(mark.time, data.timescale)}
-                </option>
-              ))}
-            </select>
-          )}
-          <select
-            aria-label="Compare with earlier run"
-            value={compareRunId}
-            onChange={(event) => {
-              const runId = event.target.value;
-              setCompareRunId(runId);
-              const run = runs.find((item) => item.id === runId);
-              if (runId && run && !run.data && !run.loading) void onLoadRun?.(runId);
-            }}
-          >
-            <option value="">Compare run…</option>
-            {runs
-              .filter((run) => run.data !== data)
-              .map((run) => (
-                <option key={run.id} value={run.id}>
-                  {run.loading ? 'Loading… ' : ''}
-                  {run.name} · {new Date(run.createdAt).toLocaleTimeString()}
-                </option>
-              ))}
-          </select>
-        </div>
-      )}
+    </>
+  );
+}
+
+function RunComparison({
+  data,
+  runs,
+  controls,
+  onLoadRun,
+}: {
+  data: VcdData;
+  runs: SimulationRun[];
+  controls: Controls;
+  onLoadRun?: Props['onLoadRun'];
+}) {
+  const select = (runId: string) => {
+    controls.setCompareRunId(runId);
+    const run = runs.find((item) => item.id === runId);
+    if (runId && run && !run.data && !run.loading) void onLoadRun?.(runId);
+  };
+  return (
+    <select
+      aria-label="Compare with earlier run"
+      value={controls.compareRunId}
+      onChange={(event) => select(event.target.value)}
+    >
+      <option value="">Compare run…</option>
+      {runs
+        .filter((run) => run.data !== data)
+        .map((run) => (
+          <option key={run.id} value={run.id}>
+            {run.loading ? 'Loading… ' : ''}
+            {run.name} · {new Date(run.createdAt).toLocaleTimeString()}
+          </option>
+        ))}
+    </select>
+  );
+}
+
+function WaveformGrid(
+  props: Props & { data: VcdData; controls: Controls; derived: Derived; actions: Actions },
+) {
+  const { controls, derived } = props;
+  return (
+    <div
+      className="wave-grid"
+      ref={controls.gridRef}
+      onScroll={(event) => controls.setScrollTop(event.currentTarget.scrollTop)}
+    >
+      <WaveformSignalList
+        breakpoints={props.breakpoints}
+        breakpointSupported={props.breakpointSupported}
+        breakpointValue={controls.breakpointValue}
+        compareByPath={derived.compareByPath}
+        cursor={controls.cursor}
+        dragKey={controls.dragKey}
+        editingBreakpoint={controls.editingBreakpoint}
+        logicHelp={controls.logicHelp}
+        onBreakpointsChange={props.onBreakpointsChange}
+        onDrop={props.actions.reorder}
+        onSignalNavigate={props.onSignalNavigate}
+        probeSignal={props.probeSignal}
+        setBreakpointValue={controls.setBreakpointValue}
+        setEditingBreakpoint={controls.setEditingBreakpoint}
+        setLogicHelp={controls.setLogicHelp}
+        setViews={controls.setViews}
+        timescale={props.data.timescale}
+        totalSignals={derived.visibleSignals.length}
+        virtualRange={derived.virtualRange}
+      />
       <div
-        className="wave-grid"
-        ref={gridRef}
-        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+        className="wave-canvas-scroll"
+        style={{ height: HEADER_HEIGHT + derived.visibleSignals.length * ROW_HEIGHT }}
       >
-        <div className="signal-list">
-          <div className="signal-header">
-            <span>Signal</span>
-            <span>Value @ {formatSimulationTime(cursor, data.timescale)}</span>
-          </div>
-          <div style={{ height: virtualRange.first * ROW_HEIGHT }} aria-hidden="true" />
-          {virtualRange.signals.map((view) => {
-            const rawValue = valueAt(view.signal.changes, cursor);
-            const comparisonSignal = compareByPath.get(view.signal.path);
-            const comparisonValue = comparisonSignal
-              ? valueAt(comparisonSignal.changes, cursor)
-              : null;
-            const probed =
-              probeSignal &&
-              view.signal.path.toLowerCase().includes(
-                probeSignal
-                  .replace(/^\\/, '')
-                  .replace(/\s*\[[^\]]+\]\s*$/, '')
-                  .toLowerCase(),
-              );
-            const breakpoint = breakpoints.find((item) => item.signalPath === view.signal.path);
-            const hasUnknown = /[xz]/i.test(rawValue);
-            return (
-              <div className="virtual-signal-slot" key={view.key}>
-                <div
-                  className={`signal-row ${probed ? 'probed' : ''}`}
-                  draggable
-                  onDragStart={() => {
-                    dragKey.current = view.key;
-                  }}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => reorder(view.key)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={view.selected}
-                    onChange={(event) =>
-                      setViews((current) =>
-                        current.map((item) =>
-                          item.key === view.key
-                            ? { ...item, selected: event.target.checked }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                  <button
-                    className="signal-name"
-                    title={`${view.signal.path} — open declaration`}
-                    onClick={() => onSignalNavigate?.(view.signal)}
-                  >
-                    <span>{signalLeafName(view.signal)}</span>
-                    <small title={view.signal.path}>{compactScope(view.signal.scope)}</small>
-                  </button>
-                  <select
-                    value={view.radix}
-                    onChange={(event) =>
-                      setViews((current) =>
-                        current.map((item) =>
-                          item.key === view.key
-                            ? { ...item, radix: event.target.value as Radix }
-                            : item,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="bin">bin</option>
-                    <option value="hex">hex</option>
-                    <option value="dec">dec</option>
-                  </select>
-                  <code
-                    title={
-                      hasUnknown
-                        ? 'X means unknown (often uninitialized or conflicting drivers). Z means high impedance (nothing is actively driving the signal).'
-                        : comparisonValue !== null
-                          ? `Earlier run: ${formatVcdValue(comparisonValue, view.signal.width, view.radix)}`
-                          : undefined
-                    }
-                  >
-                    {formatVcdValue(rawValue, view.signal.width, view.radix)}
-                    {comparisonValue !== null && comparisonValue !== rawValue ? ' ≠' : ''}
-                  </code>
-                  {hasUnknown ? (
-                    <button
-                      className="logic-help-button"
-                      title="Explain this X/Z value"
-                      onClick={() =>
-                        setLogicHelp((value) => (value === view.key ? null : view.key))
-                      }
-                    >
-                      ?
-                    </button>
-                  ) : (
-                    <span />
-                  )}
-                  <button
-                    className={`breakpoint-button ${breakpoint ? 'active' : ''}`}
-                    disabled={!breakpointSupported}
-                    title={
-                      breakpointSupported
-                        ? breakpoint
-                          ? `Stop condition: ${view.signal.path} == ${breakpoint.value}`
-                          : 'Compile a stop condition for this signal into the next simulation'
-                        : 'Signal stop conditions currently require the Icarus backend'
-                    }
-                    onClick={() => {
-                      setEditingBreakpoint(view.key);
-                      setBreakpointValue(breakpoint?.value || '1');
-                    }}
-                  >
-                    ●
-                  </button>
-                </div>
-                {logicHelp === view.key && (
-                  <div className="logic-explanation">
-                    <strong>
-                      {rawValue.toLowerCase().includes('x') ? 'X = unknown' : 'Z = high impedance'}
-                    </strong>
-                    <span>
-                      {rawValue.toLowerCase().includes('x')
-                        ? 'A value has not been initialized, not all branches assign it, or multiple drivers disagree. Reset/state initialization is the first place to check.'
-                        : 'No source is actively driving this net. This is intentional for shared buses, but often signals a disconnected port in beginner designs.'}
-                    </span>
-                  </div>
-                )}
-                {editingBreakpoint === view.key && (
-                  <div className="breakpoint-editor">
-                    <span>
-                      Stop next Icarus run when <code>{view.signal.path}</code> equals
-                    </span>
-                    <input
-                      autoFocus
-                      value={breakpointValue}
-                      onChange={(event) => setBreakpointValue(event.target.value)}
-                      placeholder="3, 0b11, or 0x3"
-                    />
-                    <button
-                      onClick={() => {
-                        onBreakpointsChange([
-                          ...breakpoints.filter((item) => item.signalPath !== view.signal.path),
-                          {
-                            signalPath: view.signal.path,
-                            width: view.signal.width,
-                            value: breakpointValue.trim() || '0',
-                          },
-                        ]);
-                        setEditingBreakpoint(null);
-                      }}
-                    >
-                      Set
-                    </button>
-                    {breakpoint && (
-                      <button
-                        onClick={() => {
-                          onBreakpointsChange(
-                            breakpoints.filter((item) => item.signalPath !== view.signal.path),
-                          );
-                          setEditingBreakpoint(null);
-                        }}
-                      >
-                        Remove
-                      </button>
-                    )}
-                    <button onClick={() => setEditingBreakpoint(null)}>Cancel</button>
-                    <small>
-                      This becomes a real simulator monitor; OpenBench does not poll or repeatedly
-                      rerun.
-                    </small>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          <div
-            style={{ height: (visibleSignals.length - virtualRange.last) * ROW_HEIGHT }}
-            aria-hidden="true"
-          />
-          {!visibleSignals.length && (
-            <div className="signal-none">No signals match this filter.</div>
-          )}
-        </div>
-        <div
-          className="wave-canvas-scroll"
-          style={{ height: HEADER_HEIGHT + visibleSignals.length * ROW_HEIGHT }}
-        >
-          <canvas
-            ref={canvasRef}
-            onClick={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              const next =
-                viewStart + ((event.clientX - rect.left) / rect.width) * (viewEnd - viewStart);
-              const bounded = Math.max(0, Math.min(data.endTime, next));
-              if (activeCursor === 'B') setCursorB(bounded);
-              else setCursor(bounded);
-            }}
-          />
-        </div>
+        <canvas
+          ref={controls.canvasRef}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const next =
+              controls.viewport.start +
+              ((event.clientX - rect.left) / rect.width) *
+                (controls.viewport.end - controls.viewport.start);
+            const bounded = Math.max(0, Math.min(props.data.endTime, next));
+            if (controls.activeCursor === 'B') controls.setCursorB(bounded);
+            else controls.setCursor(bounded);
+          }}
+        />
       </div>
     </div>
   );
@@ -775,8 +830,8 @@ export default function WaveformPanel({
 function matchesPreset(signal: VcdSignal, view: SignalView, preset: SignalPreset) {
   if (preset === 'all') return true;
   if (preset === 'selected') return view.selected;
-  const name = signal.path.toLowerCase();
-  const clockOrReset = /(?:^|[._])(?:clk|clock|rst|reset)(?:$|[._[])/.test(name);
+  const name = signal.path.toLowerCase(),
+    clockOrReset = /(?:^|[._])(?:clk|clock|rst|reset)(?:$|[._[])/.test(name);
   if (preset === 'clocks-resets') return clockOrReset;
   return (
     clockOrReset ||
@@ -786,14 +841,23 @@ function matchesPreset(signal: VcdSignal, view: SignalView, preset: SignalPreset
   );
 }
 
-function signalLeafName(signal: VcdSignal) {
-  return signal.name || signal.path.split('.').at(-1) || signal.path;
-}
-
-function compactScope(scope: string) {
-  if (!scope) return 'Top';
-  const parts = scope.split('.');
-  return parts.length > 2 ? `…${parts.slice(-2).join('.')}` : scope;
+function frequencyLabel(delta: number | null, timescale: string) {
+  const match = timescale.match(/([\d.]+)\s*(s|ms|us|ns|ps|fs)/i);
+  const units: Record<string, number> = {
+    s: 1,
+    ms: 1e-3,
+    us: 1e-6,
+    ns: 1e-9,
+    ps: 1e-12,
+    fs: 1e-15,
+  };
+  const frequency =
+    delta && match ? 1 / (delta * Number(match[1]) * units[match[2].toLowerCase()]) : null;
+  if (!frequency) return '';
+  if (frequency >= 1e9) return `${(frequency / 1e9).toFixed(3)} GHz`;
+  if (frequency >= 1e6) return `${(frequency / 1e6).toFixed(3)} MHz`;
+  if (frequency >= 1e3) return `${(frequency / 1e3).toFixed(3)} kHz`;
+  return `${frequency.toFixed(3)} Hz`;
 }
 
 function formatFileSize(bytes: number) {

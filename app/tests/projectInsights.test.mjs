@@ -19,6 +19,19 @@ test('suggests design and simulation tops from beginner HDL', () => {
   assert.deepEqual(result.missingModules, []);
 });
 
+test('recognizes automatic and static module lifetime declarations', () => {
+  const result = analyzeProjectSources([
+    { path: 'worker.sv', content: 'module automatic worker; endmodule' },
+    { path: 'controller.sv', content: 'module static controller; worker child(); endmodule' },
+  ]);
+  assert.deepEqual(
+    result.modules.map((module) => module.name),
+    ['worker', 'controller'],
+  );
+  assert.equal(result.suggestedTop, 'controller');
+  assert.deepEqual(result.missingModules, []);
+});
+
 test('keeps the DUT as design top even when the testbench instantiates it', () => {
   const result = analyzeProjectSources([
     { path: 'rtl/leaf.sv', content: 'module leaf(input logic a); endmodule' },

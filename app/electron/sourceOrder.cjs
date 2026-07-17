@@ -19,7 +19,18 @@ async function orderSourceFiles(projectRoot, files) {
 function packageProviders(sources) {
   const providers = new Map();
   for (const source of sources)
-    for (const packageName of source.declarations) providers.set(packageName, source.file);
+    for (const packageName of source.declarations) {
+      const files = providers.get(packageName) || [];
+      files.push(source.file);
+      providers.set(packageName, files);
+    }
+  const duplicates = [...providers].filter(([, files]) => files.length > 1);
+  if (duplicates.length) {
+    const details = duplicates
+      .map(([packageName, files]) => `${packageName}: ${files.join(', ')}`)
+      .join('; ');
+    throw new Error(`Duplicate SystemVerilog package providers: ${details}`);
+  }
   return providers;
 }
 
@@ -28,8 +39,8 @@ function dependencyGraph(sources, providers) {
   const dependents = new Map(sources.map((source) => [source.file, []]));
   for (const source of sources) {
     const required = new Set(
-      source.imports
-        .map((packageName) => providers.get(packageName))
+      source.references
+        .map((packageName) => providers.get(packageName)?.[0])
         .filter((provider) => provider && provider !== source.file),
     );
     dependencies.set(source.file, required);
@@ -40,17 +51,17 @@ function dependencyGraph(sources, providers) {
 
 function stableTopologicalSort(sources, graph) {
   const indexByFile = new Map(sources.map((source) => [source.file, source.index]));
-  const ready = sources
-    .filter((source) => graph.dependencies.get(source.file).size === 0)
-    .map((source) => source.file);
+  const ready = new StableReadyQueue(indexByFile);
+  for (const source of sources)
+    if (graph.dependencies.get(source.file).size === 0) ready.push(source.file);
   const ordered = [];
-  while (ready.length) {
-    const file = ready.shift();
+  while (ready.size) {
+    const file = ready.pop();
     ordered.push(file);
     for (const dependent of graph.dependents.get(file)) {
       const required = graph.dependencies.get(dependent);
       required.delete(file);
-      if (required.size === 0) insertByOriginalIndex(ready, dependent, indexByFile);
+      if (required.size === 0) ready.push(dependent);
     }
   }
   if (ordered.length !== sources.length) {
@@ -62,16 +73,51 @@ function stableTopologicalSort(sources, graph) {
   return ordered;
 }
 
-function insertByOriginalIndex(ready, file, indexByFile) {
-  const index = indexByFile.get(file);
-  let low = 0;
-  let high = ready.length;
-  while (low < high) {
-    const middle = (low + high) >> 1;
-    if (indexByFile.get(ready[middle]) <= index) low = middle + 1;
-    else high = middle;
+class StableReadyQueue {
+  constructor(indexByFile) {
+    this.heap = [];
+    this.indexByFile = indexByFile;
   }
-  ready.splice(low, 0, file);
+
+  get size() {
+    return this.heap.length;
+  }
+
+  push(file) {
+    this.heap.push(file);
+    let index = this.heap.length - 1;
+    while (index > 0) {
+      const parent = (index - 1) >> 1;
+      if (this.before(this.heap[parent], file)) break;
+      this.heap[index] = this.heap[parent];
+      index = parent;
+    }
+    this.heap[index] = file;
+  }
+
+  pop() {
+    const first = this.heap[0];
+    const last = this.heap.pop();
+    if (this.heap.length && last !== undefined) {
+      let index = 0;
+      while (true) {
+        const left = index * 2 + 1;
+        if (left >= this.heap.length) break;
+        const right = left + 1;
+        const child =
+          right < this.heap.length && this.before(this.heap[right], this.heap[left]) ? right : left;
+        if (this.before(last, this.heap[child])) break;
+        this.heap[index] = this.heap[child];
+        index = child;
+      }
+      this.heap[index] = last;
+    }
+    return first;
+  }
+
+  before(left, right) {
+    return this.indexByFile.get(left) <= this.indexByFile.get(right);
+  }
 }
 
 module.exports = { orderSourceFiles };

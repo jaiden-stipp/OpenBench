@@ -27,6 +27,31 @@ type RunActionOptions = {
 };
 
 export function useRunActions(options: RunActionOptions) {
+  return {
+    runCompile: useCompileAction(options),
+    runRtl: useRtlAction(options),
+    runSimulation: useSimulationAction(options),
+  };
+}
+
+function useCompileAction(options: RunActionOptions) {
+  const { projectGenerationRef, saveAllDirtyFiles, setCompiling } = options;
+  const reportError = useRunErrorReporter(options);
+  return useCallback(async () => {
+    const requestGeneration = projectGenerationRef.current;
+    try {
+      await saveAllDirtyFiles();
+      if (requestGeneration !== projectGenerationRef.current) return;
+      await window.openbench.runCompile();
+    } catch (error) {
+      if (requestGeneration !== projectGenerationRef.current) return;
+      setCompiling(false);
+      reportError(error);
+    }
+  }, [projectGenerationRef, reportError, saveAllDirtyFiles, setCompiling]);
+}
+
+function useSimulationAction(options: RunActionOptions) {
   const {
     breakpoints,
     openFiles,
@@ -35,49 +60,32 @@ export function useRunActions(options: RunActionOptions) {
     projectSources,
     projectGenerationRef,
     saveAllDirtyFiles,
-    setActiveView,
-    setCompiling,
-    setConsoleText,
     setHasRunSimulation,
-    setNetlist,
-    setRtlRunning,
-    setRtlTop,
     setShowGuidance,
     setSimulating,
     setStatus,
     waveformWorkerRef,
   } = options;
-  const reportError = useCallback(
-    (error: unknown) => reportRunError(error, setConsoleText, setStatus),
-    [setConsoleText, setStatus],
-  );
-  const runCompile = useCallback(async () => {
-    try {
-      await saveAllDirtyFiles();
-      await window.openbench.runCompile();
-    } catch (error) {
-      setCompiling(false);
-      reportError(error);
-    }
-  }, [reportError, saveAllDirtyFiles, setCompiling]);
-  const runSimulation = useCallback(async () => {
+  const reportError = useRunErrorReporter(options);
+  return useCallback(async () => {
     const requestGeneration = projectGenerationRef.current;
     try {
       await saveAllDirtyFiles();
+      if (requestGeneration !== projectGenerationRef.current) return;
       pendingRunSourcesRef.current = Object.fromEntries([
         ...projectSources.map((file) => [file.path, file.content] as const),
         ...openFiles.map((file) => [file.path, file.content] as const),
       ]);
       const result = await window.openbench.runSimulation(breakpoints);
+      if (requestGeneration !== projectGenerationRef.current) return;
       pendingBreakpointHitRef.current = result.breakpointHit || null;
       setHasRunSimulation(true);
       setStatus('Parsing VCD off the UI thread');
-      postWaveformRequest(
-        waveformWorkerRef.current,
-        await window.openbench.readLatestVcd(),
-        requestGeneration,
-      );
+      const latestVcd = await window.openbench.readLatestVcd();
+      if (requestGeneration !== projectGenerationRef.current) return;
+      postWaveformRequest(waveformWorkerRef.current, latestVcd, requestGeneration);
     } catch (error) {
+      if (requestGeneration !== projectGenerationRef.current) return;
       setSimulating(false);
       setShowGuidance(true);
       reportError(error);
@@ -97,21 +105,40 @@ export function useRunActions(options: RunActionOptions) {
     setStatus,
     waveformWorkerRef,
   ]);
-  const runRtl = useCallback(async () => {
+}
+
+function useRtlAction(options: RunActionOptions) {
+  const {
+    projectGenerationRef,
+    saveAllDirtyFiles,
+    setActiveView,
+    setNetlist,
+    setRtlRunning,
+    setRtlTop,
+    setStatus,
+  } = options;
+  const reportError = useRunErrorReporter(options);
+  return useCallback(async () => {
+    const requestGeneration = projectGenerationRef.current;
     try {
       await saveAllDirtyFiles();
+      if (requestGeneration !== projectGenerationRef.current) return;
       await window.openbench.runRtl();
+      if (requestGeneration !== projectGenerationRef.current) return;
       const result = await window.openbench.readLatestNetlist();
+      if (requestGeneration !== projectGenerationRef.current) return;
       setNetlist(result.netlist);
       setRtlTop(result.top);
       setActiveView('schematic');
       setStatus(`ELK layout for ${result.top}`);
     } catch (error) {
+      if (requestGeneration !== projectGenerationRef.current) return;
       setRtlRunning(false);
       reportError(error);
     }
   }, [
     reportError,
+    projectGenerationRef,
     saveAllDirtyFiles,
     setActiveView,
     setNetlist,
@@ -119,7 +146,13 @@ export function useRunActions(options: RunActionOptions) {
     setRtlTop,
     setStatus,
   ]);
-  return { runCompile, runRtl, runSimulation };
+}
+
+function useRunErrorReporter({ setConsoleText, setStatus }: RunActionOptions) {
+  return useCallback(
+    (error: unknown) => reportRunError(error, setConsoleText, setStatus),
+    [setConsoleText, setStatus],
+  );
 }
 
 function reportRunError(

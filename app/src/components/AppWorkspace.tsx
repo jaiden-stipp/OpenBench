@@ -1,10 +1,8 @@
-import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import { lazy, Suspense, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import ProjectExplorer from './ProjectExplorer';
 import OutputConsole from './OutputConsole';
 import { FileTabs, ViewTabs } from './WorkspaceTabs';
-import WaveformPanel from '../WaveformPanel';
-import SchematicPanel from '../SchematicPanel';
 import { configureSystemVerilog } from '../editor/systemVerilog';
 import type { VcdData, VcdSignal } from '../vcdParser';
 import type { YosysNetlist } from '../netlistGraph';
@@ -20,6 +18,9 @@ import type {
   Theme,
 } from '../types/ui';
 import type { ResizeState } from '../hooks/useLayoutPreferences';
+
+const WaveformPanel = lazy(() => import('../WaveformPanel'));
+const SchematicPanel = lazy(() => import('../SchematicPanel'));
 
 export type AppWorkspaceProps = {
   accessibility: AccessibilityPreferences;
@@ -192,40 +193,48 @@ function ActiveWorkspaceView(props: AppWorkspaceProps) {
   if (props.activeView === 'source') return <SourceEditor {...props} />;
   if (props.activeView === 'waveform') {
     return (
-      <WaveformPanel
-        key={props.project?.root || 'no-project'}
-        data={props.waveform}
-        name={props.waveformName}
-        runs={props.simulationRuns}
-        probeSignal={props.waveformProbe}
-        onSignalNavigate={props.onNavigateWaveSignal}
-        onLoadRun={props.onLoadWaveformRun}
-        theme={props.theme}
-        displayOptions={props.accessibility}
-        breakpoints={props.breakpoints}
-        onBreakpointsChange={props.setBreakpoints}
-        breakpointSupported={props.settings.simulator === 'iverilog'}
-        initialSession={props.waveformSession}
-        onSessionChange={props.setWaveformSession}
-      />
+      <Suspense fallback={<WorkspaceLoading label="Loading waveform viewer" />}>
+        <WaveformPanel
+          key={props.project?.root || 'no-project'}
+          data={props.waveform}
+          name={props.waveformName}
+          runs={props.simulationRuns}
+          probeSignal={props.waveformProbe}
+          onSignalNavigate={props.onNavigateWaveSignal}
+          onLoadRun={props.onLoadWaveformRun}
+          theme={props.theme}
+          displayOptions={props.accessibility}
+          breakpoints={props.breakpoints}
+          onBreakpointsChange={props.setBreakpoints}
+          breakpointSupported={props.settings.simulator === 'iverilog'}
+          initialSession={props.waveformSession}
+          onSessionChange={props.setWaveformSession}
+        />
+      </Suspense>
     );
   }
   return (
-    <SchematicPanel
-      netlist={props.netlist}
-      top={props.rtlTop}
-      focusModule={props.schematicModuleFocus}
-      probeNet={props.schematicProbe}
-      onNetProbe={(netName) => {
-        props.setWaveformProbe(netName);
-        if (props.waveform) props.setActiveView('waveform');
-        else
-          props.setStatus(`Net ${netName} selected; run simulation to cross-probe its waveform.`);
-      }}
-      onNavigateSource={props.onNavigateYosysSource}
-      onGenerateTestbench={props.setStimulusModule}
-    />
+    <Suspense fallback={<WorkspaceLoading label="Loading RTL viewer" />}>
+      <SchematicPanel
+        netlist={props.netlist}
+        top={props.rtlTop}
+        focusModule={props.schematicModuleFocus}
+        probeNet={props.schematicProbe}
+        onNetProbe={(netName) => {
+          props.setWaveformProbe(netName);
+          if (props.waveform) props.setActiveView('waveform');
+          else
+            props.setStatus(`Net ${netName} selected; run simulation to cross-probe its waveform.`);
+        }}
+        onNavigateSource={props.onNavigateYosysSource}
+        onGenerateTestbench={props.setStimulusModule}
+      />
+    </Suspense>
   );
+}
+
+function WorkspaceLoading({ label }: { label: string }) {
+  return <div className="editor-empty">{label}…</div>;
 }
 
 function SourceEditor(props: AppWorkspaceProps) {

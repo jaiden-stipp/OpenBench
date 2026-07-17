@@ -147,7 +147,10 @@ export function parseHdlStructure(content) {
   const instantiations = [];
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (token === 'module' && isIdentifier(tokens[index + 1])) modules.push(tokens[index + 1]);
+    if (token === 'module') {
+      const nameIndex = ['automatic', 'static'].includes(tokens[index + 1]) ? index + 2 : index + 1;
+      if (isIdentifier(tokens[nameIndex])) modules.push(tokens[nameIndex]);
+    }
     if (!isPossibleModuleType(token) || ['.', ':', '=', "'"].includes(tokens[index - 1])) continue;
     let cursor = index + 1;
     if (tokens[cursor] === '#') {
@@ -164,7 +167,7 @@ export function parseHdlStructure(content) {
 export function parsePackageReferences(content) {
   const tokens = tokenizeHdl(content);
   const declarations = [];
-  const imports = [];
+  const references = [];
   for (let index = 0; index < tokens.length; index += 1) {
     if (tokens[index] === 'package' && isIdentifier(tokens[index + 1]) && tokens[index + 2] === ';')
       declarations.push(tokens[index + 1]);
@@ -174,9 +177,16 @@ export function parsePackageReferences(content) {
       tokens[index + 2] === ':' &&
       tokens[index + 3] === ':'
     )
-      imports.push(tokens[index + 1]);
+      references.push(tokens[index + 1]);
+    if (
+      isIdentifier(tokens[index]) &&
+      tokens[index + 1] === ':' &&
+      tokens[index + 2] === ':' &&
+      isIdentifier(tokens[index + 3])
+    )
+      references.push(tokens[index]);
   }
-  return { declarations: [...new Set(declarations)], imports: [...new Set(imports)] };
+  return { declarations: [...new Set(declarations)], references: [...new Set(references)] };
 }
 
 export function hasHdlToken(content, expected) {
