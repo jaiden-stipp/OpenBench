@@ -1,6 +1,7 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { VcdData } from '../vcdParser';
 import type { ActiveView, SimulationRun } from '../types/ui';
+import { isCurrentWaveformResponse } from '../waveformWorkerClient';
 
 type WorkerMessage = {
   ok: boolean;
@@ -10,11 +11,13 @@ type WorkerMessage = {
   purpose?: 'history' | 'open';
   id?: string;
   createdAt?: number;
+  projectGeneration?: number;
 };
 
 type WaveformWorkerOptions = {
   pendingBreakpointHitRef: MutableRefObject<{ condition: string; time: number } | null>;
   pendingRunSourcesRef: MutableRefObject<Record<string, string>>;
+  projectGenerationRef: MutableRefObject<number>;
   setActiveView: Dispatch<SetStateAction<ActiveView>>;
   setSimulationRuns: Dispatch<SetStateAction<SimulationRun[]>>;
   setStatus: Dispatch<SetStateAction<string>>;
@@ -27,6 +30,7 @@ export function useWaveformWorker(options: WaveformWorkerOptions) {
   const {
     pendingBreakpointHitRef,
     pendingRunSourcesRef,
+    projectGenerationRef,
     setActiveView,
     setSimulationRuns,
     setStatus,
@@ -37,10 +41,12 @@ export function useWaveformWorker(options: WaveformWorkerOptions) {
   useEffect(() => {
     const worker = new Worker(new URL('../vcd.worker.ts', import.meta.url), { type: 'module' });
     waveformWorkerRef.current = worker;
-    worker.onmessage = (event: MessageEvent<WorkerMessage>) =>
+    worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
+      if (!isCurrentWaveformResponse(event.data, projectGenerationRef.current)) return;
       handleWorkerMessage(event.data, {
         pendingBreakpointHitRef,
         pendingRunSourcesRef,
+        projectGenerationRef,
         setActiveView,
         setSimulationRuns,
         setStatus,
@@ -48,6 +54,11 @@ export function useWaveformWorker(options: WaveformWorkerOptions) {
         setWaveformName,
         waveformWorkerRef,
       });
+    };
+    worker.onerror = () => {
+      setSimulationRuns((current) => current.map((run) => ({ ...run, loading: false })));
+      setStatus('The waveform parser stopped unexpectedly. Run the simulation again.');
+    };
     return () => {
       worker.terminate();
       if (waveformWorkerRef.current === worker) waveformWorkerRef.current = null;
@@ -55,6 +66,7 @@ export function useWaveformWorker(options: WaveformWorkerOptions) {
   }, [
     pendingBreakpointHitRef,
     pendingRunSourcesRef,
+    projectGenerationRef,
     setActiveView,
     setSimulationRuns,
     setStatus,

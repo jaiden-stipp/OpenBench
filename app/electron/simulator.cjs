@@ -5,6 +5,8 @@ const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const { locateIcarus } = require('./compiler.cjs');
 
+const hdlStructure = import('../shared/hdlStructure.js');
+
 const execFileAsync = promisify(execFile);
 const SIMULATION_ASSET_EXTENSIONS = new Set(['.bin', '.dat', '.hex', '.mem']);
 const MAX_STAGED_ASSET_BYTES = 64 * 1024 * 1024;
@@ -125,7 +127,8 @@ async function stageSimulationAssets(projectRoot, runDirectory) {
 async function createTraceMonitor(runDirectory, topModule, absoluteFiles) {
   if (!/^[A-Za-z_$][\w$]*$/.test(topModule || '')) return null;
   const contents = await Promise.all(absoluteFiles.map((file) => fsp.readFile(file, 'utf8')));
-  if (contents.some((content) => /\$dumpvars\s*\(/.test(content))) return null;
+  const { hasHdlToken } = await hdlStructure;
+  if (contents.some((content) => hasHdlToken(content, '$dumpvars'))) return null;
   const monitorPath = path.join(runDirectory, 'openbench_trace_monitor.sv');
   await fsp.writeFile(
     monitorPath,

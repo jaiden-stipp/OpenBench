@@ -7,6 +7,7 @@ self.onmessage = (
     purpose?: 'history';
     id?: string;
     createdAt?: number;
+    projectGeneration: number;
   }>,
 ) => {
   try {
@@ -18,6 +19,7 @@ self.onmessage = (
       purpose: event.data.purpose,
       id: event.data.id,
       createdAt: event.data.createdAt,
+      projectGeneration: event.data.projectGeneration,
     });
   } catch (error) {
     self.postMessage({
@@ -25,6 +27,7 @@ self.onmessage = (
       error: error instanceof Error ? error.message : String(error),
       purpose: event.data.purpose,
       id: event.data.id,
+      projectGeneration: event.data.projectGeneration,
     });
   }
 };

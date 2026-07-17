@@ -85,3 +85,57 @@ test('real Yosys elaborates package-defined packed structs through the Slang fro
     await fsp.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test('Slang elaborates package sources whose project and filenames contain spaces', async () => {
+  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench slang paths '));
+  const projectRoot = path.join(parent, 'My HDL Project');
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
+  try {
+    await fsp.mkdir(projectRoot);
+    await fsp.writeFile(
+      path.join(projectRoot, 'CPU Types.sv'),
+      'package cpu_types; typedef struct packed { logic valid; } control_t; endpackage\n',
+    );
+    await fsp.writeFile(
+      path.join(projectRoot, 'CPU Core.sv'),
+      'import cpu_types::*; module cpu_core(input control_t control, output logic valid); assign valid = control.valid; endmodule\n',
+    );
+    let output = '';
+    const result = await runYosysElaboration({
+      projectRoot,
+      suiteRoot,
+      files: ['CPU Types.sv', 'CPU Core.sv'],
+      topModule: 'cpu_core',
+      onOutput: (_stream, text) => {
+        output += text;
+      },
+    }).catch((error) => {
+      throw new Error(`${error.message}\n${output}`);
+    });
+    const json = JSON.parse(await fsp.readFile(result.jsonPath, 'utf8'));
+    assert.equal(result.top, 'cpu_core');
+    assert.match(json.modules.cpu_core.attributes.src, /^CPU Core\.sv:/);
+  } finally {
+    await fsp.rm(parent, { recursive: true, force: true });
+  }
+});
+
+test('package text in comments and strings stays on the ordinary Yosys frontend', async () => {
+  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-yosys-comments-'));
+  const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
+  try {
+    await fsp.writeFile(
+      path.join(projectRoot, 'top.sv'),
+      'module top(output logic y); // package old_types;\ninitial $display("package string_types;"); assign y = 1; endmodule\n',
+    );
+    const result = await runYosysElaboration({
+      projectRoot,
+      suiteRoot,
+      files: ['top.sv'],
+      topModule: 'top',
+    });
+    assert.equal(result.top, 'top');
+  } finally {
+    await fsp.rm(projectRoot, { recursive: true, force: true });
+  }
+});

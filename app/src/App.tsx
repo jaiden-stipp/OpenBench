@@ -132,6 +132,7 @@ export default function App() {
   );
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const waveformWorkerRef = useRef<Worker | null>(null);
+  const projectGenerationRef = useRef(0);
   const pendingBreakpointHitRef = useRef<{ condition: string; time: number } | null>(null);
   const pendingRunSourcesRef = useRef<Record<string, string>>({});
   const watchRunRef = useRef<(() => Promise<void>) | null>(null);
@@ -152,6 +153,7 @@ export default function App() {
   const loadWaveformRun = useWaveformHistory(
     project,
     waveformWorkerRef,
+    projectGenerationRef,
     setSimulationRuns,
     setStatus,
   );
@@ -165,6 +167,7 @@ export default function App() {
   useWaveformWorker({
     pendingBreakpointHitRef,
     pendingRunSourcesRef,
+    projectGenerationRef,
     setActiveView,
     setSimulationRuns,
     setStatus,
@@ -216,6 +219,7 @@ export default function App() {
     setStatus,
   });
   const loadProject = useLoadProject({
+    projectGenerationRef,
     setActiveFilePath,
     setActiveView,
     setBreakpoints,
@@ -236,6 +240,7 @@ export default function App() {
 
   useSessionRestore({
     loadProject,
+    projectGenerationRef,
     setActiveFilePath,
     setActiveView,
     setEditorCursor,
@@ -316,6 +321,7 @@ export default function App() {
     pendingBreakpointHitRef,
     pendingRunSourcesRef,
     projectSources,
+    projectGenerationRef,
     saveAllDirtyFiles,
     setActiveView,
     setCompiling,

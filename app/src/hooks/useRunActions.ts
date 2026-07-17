@@ -3,6 +3,7 @@ import { sourceForNet, type YosysNetlist } from '../netlistGraph';
 import { parseYosysSource } from '../sourceLocation';
 import type { VcdSignal } from '../vcdParser';
 import type { ActiveView, OpenFile } from '../types/ui';
+import { postWaveformRequest } from '../waveformWorkerClient';
 
 type RunActionOptions = {
   breakpoints: WaveBreakpoint[];
@@ -10,6 +11,7 @@ type RunActionOptions = {
   pendingBreakpointHitRef: MutableRefObject<{ condition: string; time: number } | null>;
   pendingRunSourcesRef: MutableRefObject<Record<string, string>>;
   projectSources: Array<{ path: string; content: string }>;
+  projectGenerationRef: MutableRefObject<number>;
   saveAllDirtyFiles: () => Promise<void>;
   setActiveView: Dispatch<SetStateAction<ActiveView>>;
   setCompiling: Dispatch<SetStateAction<boolean>>;
@@ -31,6 +33,7 @@ export function useRunActions(options: RunActionOptions) {
     pendingBreakpointHitRef,
     pendingRunSourcesRef,
     projectSources,
+    projectGenerationRef,
     saveAllDirtyFiles,
     setActiveView,
     setCompiling,
@@ -58,6 +61,7 @@ export function useRunActions(options: RunActionOptions) {
     }
   }, [reportError, saveAllDirtyFiles, setCompiling]);
   const runSimulation = useCallback(async () => {
+    const requestGeneration = projectGenerationRef.current;
     try {
       await saveAllDirtyFiles();
       pendingRunSourcesRef.current = Object.fromEntries([
@@ -68,7 +72,11 @@ export function useRunActions(options: RunActionOptions) {
       pendingBreakpointHitRef.current = result.breakpointHit || null;
       setHasRunSimulation(true);
       setStatus('Parsing VCD off the UI thread');
-      waveformWorkerRef.current?.postMessage(await window.openbench.readLatestVcd());
+      postWaveformRequest(
+        waveformWorkerRef.current,
+        await window.openbench.readLatestVcd(),
+        requestGeneration,
+      );
     } catch (error) {
       setSimulating(false);
       setShowGuidance(true);
@@ -80,6 +88,7 @@ export function useRunActions(options: RunActionOptions) {
     pendingBreakpointHitRef,
     pendingRunSourcesRef,
     projectSources,
+    projectGenerationRef,
     reportError,
     saveAllDirtyFiles,
     setHasRunSimulation,

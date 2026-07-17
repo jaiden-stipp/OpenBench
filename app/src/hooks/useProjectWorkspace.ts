@@ -11,6 +11,7 @@ import type { editor } from 'monaco-editor';
 import type { VcdData } from '../vcdParser';
 import type { YosysNetlist } from '../netlistGraph';
 import type { ActiveView, OpenFile, SimulationRun } from '../types/ui';
+import { postWaveformRequest } from '../waveformWorkerClient';
 
 export function useProjectSources(project: ProjectData | null) {
   const [sources, setSources] = useState<Array<{ path: string; content: string }>>([]);
@@ -41,6 +42,7 @@ export function useProjectSources(project: ProjectData | null) {
 export function useWaveformHistory(
   project: ProjectData | null,
   workerRef: MutableRefObject<Worker | null>,
+  projectGenerationRef: MutableRefObject<number>,
   setRuns: Dispatch<SetStateAction<SimulationRun[]>>,
   setStatus: Dispatch<SetStateAction<string>>,
 ) {
@@ -76,16 +78,17 @@ export function useWaveformHistory(
 
   return useCallback(
     async (runId: string, open = false) => {
+      const requestGeneration = projectGenerationRef.current;
       setRuns((current) =>
         current.map((run) => (run.id === runId ? { ...run, loading: true } : run)),
       );
       try {
         const run = await window.openbench.readWaveformRun(runId);
-        workerRef.current?.postMessage({
-          ...run,
-          purpose: open ? 'open' : 'history',
-          id: runId,
-        });
+        postWaveformRequest(
+          workerRef.current,
+          { ...run, purpose: open ? 'open' : 'history', id: runId },
+          requestGeneration,
+        );
       } catch (error) {
         setRuns((current) =>
           current.map((run) => (run.id === runId ? { ...run, loading: false } : run)),
@@ -93,7 +96,7 @@ export function useWaveformHistory(
         throw error;
       }
     },
-    [setRuns, workerRef],
+    [projectGenerationRef, setRuns, workerRef],
   );
 }
 
@@ -167,6 +170,7 @@ function revealEditorLocation(
 }
 
 type LoadProjectOptions = {
+  projectGenerationRef: MutableRefObject<number>;
   setActiveFilePath: Dispatch<SetStateAction<string | null>>;
   setActiveView: Dispatch<SetStateAction<ActiveView>>;
   setBreakpoints: Dispatch<SetStateAction<WaveBreakpoint[]>>;
@@ -187,6 +191,7 @@ type LoadProjectOptions = {
 
 export function useLoadProject(options: LoadProjectOptions) {
   const {
+    projectGenerationRef,
     setActiveFilePath,
     setActiveView,
     setBreakpoints,
@@ -206,6 +211,7 @@ export function useLoadProject(options: LoadProjectOptions) {
   } = options;
   return useCallback(
     async (next: ProjectData, resetWorkspace = true) => {
+      projectGenerationRef.current += 1;
       setProject(next);
       if (resetWorkspace)
         resetWorkspaceState({
@@ -227,6 +233,7 @@ export function useLoadProject(options: LoadProjectOptions) {
       setSettings(await window.openbench.getSettings());
     },
     [
+      projectGenerationRef,
       setActiveFilePath,
       setActiveView,
       setBreakpoints,
@@ -249,7 +256,7 @@ export function useLoadProject(options: LoadProjectOptions) {
 
 type WorkspaceResetOptions = Omit<
   LoadProjectOptions,
-  'setConsoleText' | 'setProject' | 'setSettings' | 'setStatus'
+  'projectGenerationRef' | 'setConsoleText' | 'setProject' | 'setSettings' | 'setStatus'
 >;
 
 function resetWorkspaceState(options: WorkspaceResetOptions) {

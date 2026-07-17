@@ -34,15 +34,16 @@ test('backend operations see every dirty editor buffer after save all', async ()
       },
     ];
 
-    const snapshots = await persistDirtyFiles(files, (file) => writeFile(file.path, file.content));
+    const result = await persistDirtyFiles(files, (file) => writeFile(file.path, file.content));
     const backendSources = await Promise.all(
       [firstPath, secondPath, cleanPath].map((file) => readFile(file, 'utf8')),
     );
 
     assert.deepEqual(
-      snapshots.map((file) => file.path),
+      result.successful.map((file) => file.path),
       [firstPath, secondPath],
     );
+    assert.deepEqual(result.failed, []);
     assert.deepEqual(backendSources, [
       'module first_new; endmodule\n',
       'module second_new; endmodule\n',
@@ -51,4 +52,26 @@ test('backend operations see every dirty editor buffer after save all', async ()
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test('partial save results identify disk writes that succeeded and failed', async () => {
+  const files = [
+    { path: 'first.sv', content: 'new first', savedContent: 'old first' },
+    { path: 'second.sv', content: 'new second', savedContent: 'old second' },
+    { path: 'third.sv', content: 'new third', savedContent: 'old third' },
+  ];
+  const writes = [];
+  const result = await persistDirtyFiles(files, async (file) => {
+    if (file.path === 'second.sv') throw new Error('disk full');
+    writes.push(file.path);
+  });
+  assert.deepEqual(writes, ['first.sv', 'third.sv']);
+  assert.deepEqual(
+    result.successful.map((file) => file.path),
+    ['first.sv', 'third.sv'],
+  );
+  assert.deepEqual(
+    result.failed.map(({ snapshot }) => snapshot.path),
+    ['second.sv'],
+  );
 });

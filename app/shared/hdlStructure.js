@@ -75,8 +75,8 @@ const BUILTIN_PRIMITIVES = new Set([
 ]);
 
 export function analyzeHdlFiles(files) {
-  const roles = Object.fromEntries(files.map((file) => [file.path, classifyFile(file)]));
   const parsed = files.map((file) => ({ ...file, ...parseHdlStructure(file.content) }));
+  const roles = Object.fromEntries(parsed.map((file) => [file.path, classifyFile(file)]));
   const modules = parsed.flatMap((file) => file.modules.map((name) => ({ name, file: file.path })));
   const moduleOwners = new Map();
   for (const module of modules) {
@@ -161,13 +161,33 @@ export function parseHdlStructure(content) {
   return { modules, instantiations };
 }
 
+export function parsePackageReferences(content) {
+  const tokens = tokenizeHdl(content);
+  const declarations = [];
+  const imports = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index] === 'package' && isIdentifier(tokens[index + 1]) && tokens[index + 2] === ';')
+      declarations.push(tokens[index + 1]);
+    if (
+      tokens[index] === 'import' &&
+      isIdentifier(tokens[index + 1]) &&
+      tokens[index + 2] === ':' &&
+      tokens[index + 3] === ':'
+    )
+      imports.push(tokens[index + 1]);
+  }
+  return { declarations: [...new Set(declarations)], imports: [...new Set(imports)] };
+}
+
+export function hasHdlToken(content, expected) {
+  return tokenizeHdl(content).includes(expected);
+}
+
 function classifyFile(file) {
   if (/\.(?:vh|svh)$/i.test(file.path)) return 'include';
   if (
     /(?:^|[_.-])(?:tb|testbench)(?:[_.-]|$)/i.test(file.path) ||
-    parseHdlStructure(file.content).modules.some((name) =>
-      /(?:^|_)(?:tb|testbench)(?:_|$)/i.test(name),
-    )
+    file.modules.some((name) => /(?:^|_)(?:tb|testbench)(?:_|$)/i.test(name))
   )
     return 'testbench';
   return 'design';
@@ -198,7 +218,7 @@ function afterBalancedGroup(tokens, openingIndex) {
   return tokens.length;
 }
 
-function tokenizeHdl(content) {
+export function tokenizeHdl(content) {
   const tokens = [];
   let index = 0;
   while (index < content.length) {

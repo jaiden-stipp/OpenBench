@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { parseDiagnostic } from '../diagnostics.js';
 import type { ConsoleMode } from '../types/ui';
+import { visibleConsoleEntries } from '../consoleEntries';
 
 interface OutputConsoleProps {
   mode: ConsoleMode;
@@ -41,6 +42,7 @@ export default function OutputConsole({ mode, text, onClear, onOpenSource }: Out
   const raw = entries.filter(
     (entry) => entry.presentation.kind === 'raw' || entry.presentation.kind === 'command',
   );
+  const visible = visibleConsoleEntries(entries, showRaw);
 
   return (
     <div className="console-panel panel" style={{ gridArea: 'console' }}>
@@ -59,7 +61,7 @@ export default function OutputConsole({ mode, text, onClear, onOpenSource }: Out
         {primary.length === 0 && raw.length > 0 && !showRaw && (
           <div className="console-placeholder">Tool output is available under “Show raw.”</div>
         )}
-        {[...primary, ...(showRaw ? raw : [])].map(({ line, diagnostic, presentation }, index) => {
+        {visible.map(({ line, diagnostic, presentation }, index) => {
           const className = [
             'console-line',
             presentation.kind,

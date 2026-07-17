@@ -3,8 +3,14 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { mountSuite } = require('./simulator.cjs');
 
+const hdlStructure = import('../shared/hdlStructure.js');
+
 function quoteYosys(value) {
   return `"${value.replaceAll('\\', '/').replaceAll('"', '\\"')}"`;
+}
+
+function quoteSlangArgument(value) {
+  return JSON.stringify(value.replaceAll('\\', '/'));
 }
 
 function runProcess(executable, args, options, onOutput) {
@@ -69,22 +75,34 @@ async function runYosysElaboration({
     const sourceContents = await Promise.all(
       absoluteFiles.map((file) => fsp.readFile(file, 'utf8')),
     );
-    const needsSlang = sourceContents.some((content) =>
-      /\bpackage\s+[A-Za-z_$][\w$]*\s*;/.test(content),
+    const { parsePackageReferences } = await hdlStructure;
+    const needsSlang = sourceContents.some(
+      (content) => parsePackageReferences(content).declarations.length > 0,
     );
     const slangPlugin = path.join(suiteRoot, 'share', 'yosys', 'plugins', 'slang.so');
     if (needsSlang && !(await fsp.stat(slangPlugin).catch(() => null)))
       throw new Error(
         'This design uses SystemVerilog packages, but the bundled Yosys slang frontend is unavailable.',
       );
+    let slangCommandFile = null;
+    if (needsSlang) {
+      slangCommandFile = path.join(runDirectory, 'slang-files.f');
+      const commandFile = [
+        '--single-unit',
+        '--ignore-timing',
+        '--ignore-initial',
+        ...(topModule ? ['--top', quoteSlangArgument(topModule)] : []),
+        ...stagedIncludes.flatMap((includePath) => ['-I', quoteSlangArgument(includePath)]),
+        ...absoluteFiles.map((file) => quoteSlangArgument(path.relative(runDirectory, file))),
+        '',
+      ].join('\n');
+      await fsp.writeFile(slangCommandFile, commandFile, 'utf8');
+    }
     const hierarchy = topModule
       ? `hierarchy -check -top ${topModule}`
       : 'hierarchy -check -auto-top';
     const frontendCommands = needsSlang
-      ? [
-          'plugin -i slang',
-          `read_slang --single-unit --ignore-timing --ignore-initial ${topModule ? `--top ${topModule} ` : ''}${stagedIncludes.map((includePath) => `-I${includePath}`).join(' ')} ${absoluteFiles.map((file) => path.relative(runDirectory, file).replaceAll('\\', '/')).join(' ')}`,
-        ]
+      ? ['plugin -i slang', `read_slang -f ${path.basename(slangCommandFile)}`]
       : [
           ...stagedIncludes.map((includePath) => `verilog_defaults -add -I${includePath}`),
           `read_verilog -sv ${absoluteFiles.map(quoteYosys).join(' ')}`,
@@ -129,4 +147,9 @@ async function runYosysElaboration({
   }
 }
 
-module.exports = { normalizeNetlistSources, quoteYosys, runYosysElaboration };
+module.exports = {
+  normalizeNetlistSources,
+  quoteSlangArgument,
+  quoteYosys,
+  runYosysElaboration,
+};

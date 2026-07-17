@@ -60,92 +60,18 @@ export default function SettingsDialog({
             ×
           </button>
         </div>
-        <label>
-          <span>Simulator backend</span>
-          <select
-            value={draft.simulator}
-            onChange={(event) =>
-              setDraft((value) => ({
-                ...value,
-                simulator: event.target.value as ProjectSettings['simulator'],
-              }))
-            }
-          >
-            <option value="iverilog">Icarus Verilog</option>
-            <option value="verilator">Verilator</option>
-          </select>
-          <small>
-            {draft.simulator === 'verilator'
-              ? 'Useful for strict linting. Simulation may also require a C++ build toolchain.'
-              : 'Recommended for the simplest compile and simulation workflow.'}
-          </small>
-        </label>
-        <div className="settings-columns">
-          <label>
-            <span>Design top module</span>
-            <select
-              value={draft.topModule}
-              onChange={(event) =>
-                setDraft((value) => ({ ...value, topModule: event.target.value }))
-              }
-            >
-              <option value="">Select a design module</option>
-              {[...new Set([draft.topModule, ...designModules].filter(Boolean))].map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <small>Used for RTL Analysis; no testbench is required.</small>
-          </label>
-          <label>
-            <span>Simulation top module</span>
-            <select
-              value={draft.simulationTop}
-              onChange={(event) =>
-                setDraft((value) => ({ ...value, simulationTop: event.target.value }))
-              }
-            >
-              <option value="">No testbench selected</option>
-              {[...new Set([draft.simulationTop, ...simulationModules].filter(Boolean))].map(
-                (name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ),
-              )}
-            </select>
-            <small>Optional. Select a testbench to enable simulation.</small>
-          </label>
-        </div>
+        <SimulatorField draft={draft} setDraft={setDraft} />
+        <TopModuleFields
+          draft={draft}
+          setDraft={setDraft}
+          designModules={designModules}
+          simulationModules={simulationModules}
+        />
         <div className="toolchain-ready">Bundled tools are selected automatically.</div>
         <button className="advanced-toggle" onClick={() => setShowAdvanced((value) => !value)}>
           {showAdvanced ? 'Hide' : 'Show'} advanced settings
         </button>
-        {showAdvanced && (
-          <div className="advanced-settings">
-            <label>
-              <span>Custom toolchain location</span>
-              <input
-                placeholder="Leave empty to use bundled tools"
-                value={draft.toolchainPath}
-                onChange={(event) =>
-                  setDraft((value) => ({ ...value, toolchainPath: event.target.value }))
-                }
-              />
-              <small>Use this only when testing a different OSS CAD Suite installation.</small>
-            </label>
-            <label>
-              <span>Include paths</span>
-              <textarea
-                rows={5}
-                placeholder="One project-relative or absolute directory per line"
-                value={includeText}
-                onChange={(event) => setIncludeText(event.target.value)}
-              />
-            </label>
-          </div>
-        )}
+        {showAdvanced && <AdvancedSettings {...{ draft, setDraft, includeText, setIncludeText }} />}
         {error && <div className="settings-error">{error}</div>}
         <div className="settings-actions">
           <button onClick={onClose}>Cancel</button>
@@ -154,6 +80,117 @@ export default function SettingsDialog({
           </button>
         </div>
       </section>
+    </div>
+  );
+}
+
+type DraftSetter = React.Dispatch<React.SetStateAction<ProjectSettings>>;
+
+function SimulatorField({ draft, setDraft }: { draft: ProjectSettings; setDraft: DraftSetter }) {
+  return (
+    <label>
+      <span>Simulator backend</span>
+      <select
+        value={draft.simulator}
+        onChange={(event) =>
+          setDraft((value) => ({
+            ...value,
+            simulator: event.target.value as ProjectSettings['simulator'],
+          }))
+        }
+      >
+        <option value="iverilog">Icarus Verilog</option>
+        <option value="verilator">Verilator</option>
+      </select>
+      <small>
+        {draft.simulator === 'verilator'
+          ? 'Useful for strict linting. Simulation may also require a C++ build toolchain.'
+          : 'Recommended for the simplest compile and simulation workflow.'}
+      </small>
+    </label>
+  );
+}
+
+function TopModuleFields({
+  draft,
+  setDraft,
+  designModules,
+  simulationModules,
+}: {
+  draft: ProjectSettings;
+  setDraft: DraftSetter;
+  designModules: string[];
+  simulationModules: string[];
+}) {
+  const options = (current: string, modules: string[]) =>
+    [...new Set([current, ...modules].filter(Boolean))].map((name) => (
+      <option key={name} value={name}>
+        {name}
+      </option>
+    ));
+  return (
+    <div className="settings-columns">
+      <label>
+        <span>Design top module</span>
+        <select
+          value={draft.topModule}
+          onChange={(event) => setDraft((value) => ({ ...value, topModule: event.target.value }))}
+        >
+          <option value="">Select a design module</option>
+          {options(draft.topModule, designModules)}
+        </select>
+        <small>Used for RTL Analysis; no testbench is required.</small>
+      </label>
+      <label>
+        <span>Simulation top module</span>
+        <select
+          value={draft.simulationTop}
+          onChange={(event) =>
+            setDraft((value) => ({ ...value, simulationTop: event.target.value }))
+          }
+        >
+          <option value="">No testbench selected</option>
+          {options(draft.simulationTop, simulationModules)}
+        </select>
+        <small>Optional. Select a testbench to enable simulation.</small>
+      </label>
+    </div>
+  );
+}
+
+function AdvancedSettings({
+  draft,
+  setDraft,
+  includeText,
+  setIncludeText,
+}: {
+  draft: ProjectSettings;
+  setDraft: DraftSetter;
+  includeText: string;
+  setIncludeText: React.Dispatch<React.SetStateAction<string>>;
+}) {
+  return (
+    <div className="advanced-settings">
+      <label>
+        <span>Custom toolchain location</span>
+        <input
+          placeholder="Leave empty to use bundled tools"
+          value={draft.toolchainPath}
+          onChange={(event) =>
+            setDraft((value) => ({ ...value, toolchainPath: event.target.value }))
+          }
+        />
+        <small>Use this only when testing a different OSS CAD Suite installation.</small>
+      </label>
+      <label>
+        <span>Include paths</span>
+        <textarea
+          rows={5}
+          placeholder="One project-relative or absolute directory per line"
+          value={includeText}
+          onChange={(event) => setIncludeText(event.target.value)}
+        />
+      </label>
     </div>
   );
 }

@@ -126,13 +126,23 @@ export function useFilePersistence(options: FileSaveOptions) {
   );
   const saveAllDirtyFiles = useCallback(async () => {
     try {
-      const snapshots = await persistDirtyFiles(openFiles, async (file) => {
+      const result = await persistDirtyFiles(openFiles, async (file) => {
         await window.openbench.writeFile(file.path, file.content);
         await window.openbench.clearRecoveryDraft(file.path);
       });
-      if (!snapshots.length) return;
-      setOpenFiles((current) => markSnapshotsSaved(current, snapshots));
-      setStatus(`Saved ${snapshots.length} changed file${snapshots.length === 1 ? '' : 's'}`);
+      if (result.successful.length)
+        setOpenFiles((current) => markSnapshotsSaved(current, result.successful));
+      if (result.failed.length) {
+        const names = result.failed.map(({ snapshot }) => snapshot.path).join(', ');
+        throw new AggregateError(
+          result.failed.map(({ reason }) => reason),
+          `Could not save ${names}. ${result.successful.length} other file${result.successful.length === 1 ? ' was' : 's were'} saved.`,
+        );
+      }
+      if (!result.successful.length) return;
+      setStatus(
+        `Saved ${result.successful.length} changed file${result.successful.length === 1 ? '' : 's'}`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Save all failed: ${message}`);

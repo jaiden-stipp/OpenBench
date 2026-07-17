@@ -30,14 +30,7 @@ export default function RunToolbar(props: RunToolbarProps) {
   return (
     <div className="toolbar run-toolbar">
       {props.hasProject && (
-        <div
-          className="run-targets"
-          title={`RTL uses ${props.designTop || 'no selected design top'}; simulation uses ${props.simulationTop || 'no selected testbench'}`}
-        >
-          <span>Design</span>
-          <strong>{props.designTop || 'Select top'}</strong>
-          {props.simulationTop && <small>Testbench: {props.simulationTop}</small>}
-        </div>
+        <RunTargets designTop={props.designTop} simulationTop={props.simulationTop} />
       )}
       <button
         className="visually-hidden"
@@ -117,6 +110,30 @@ export default function RunToolbar(props: RunToolbarProps) {
       <button className="visually-hidden" data-testid="theme-toggle" onClick={props.onToggleTheme}>
         Theme
       </button>
+      <DockControls {...props} />
+    </div>
+  );
+}
+
+function RunTargets({
+  designTop,
+  simulationTop,
+}: Pick<RunToolbarProps, 'designTop' | 'simulationTop'>) {
+  return (
+    <div
+      className="run-targets"
+      title={`RTL uses ${designTop || 'no selected design top'}; simulation uses ${simulationTop || 'no selected testbench'}`}
+    >
+      <span>Design</span>
+      <strong>{designTop || 'Select top'}</strong>
+      {simulationTop && <small>Testbench: {simulationTop}</small>}
+    </div>
+  );
+}
+
+function DockControls(props: RunToolbarProps) {
+  return (
+    <>
       <select
         className="visually-hidden"
         aria-label="Explorer dock"
@@ -135,6 +152,6 @@ export default function RunToolbar(props: RunToolbarProps) {
         <option value="bottom">Console: Bottom</option>
         <option value="right">Console: Right</option>
       </select>
-    </div>
+    </>
   );
 }

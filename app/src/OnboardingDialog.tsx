@@ -39,6 +39,17 @@ const TASKS = [
   },
 ];
 
+type OnboardingProps = {
+  onSkip: () => void;
+  onOpenExample: () => Promise<void>;
+  onFinish: () => void;
+  compilePassed: boolean;
+  waveformReady: boolean;
+  waveformInteracted: boolean;
+  schematicReady: boolean;
+  activeView: 'source' | 'waveform' | 'schematic';
+};
+
 export default function OnboardingDialog({
   onSkip,
   onOpenExample,
@@ -48,16 +59,7 @@ export default function OnboardingDialog({
   waveformInteracted,
   schematicReady,
   activeView,
-}: {
-  onSkip: () => void;
-  onOpenExample: () => Promise<void>;
-  onFinish: () => void;
-  compilePassed: boolean;
-  waveformReady: boolean;
-  waveformInteracted: boolean;
-  schematicReady: boolean;
-  activeView: 'source' | 'waveform' | 'schematic';
-}) {
+}: OnboardingProps) {
   const [step, setStep] = useState(0);
   const [opening, setOpening] = useState(false);
   const [startError, setStartError] = useState('');
@@ -89,94 +91,106 @@ export default function OnboardingDialog({
     };
   }, [step]);
 
+  const startTutorial = async () => {
+    setOpening(true);
+    setStartError('');
+    try {
+      await onOpenExample();
+      setStep(1);
+    } catch (error) {
+      setStartError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setOpening(false);
+    }
+  };
   if (step === 0)
-    return (
-      <div className="modal-backdrop onboarding-backdrop">
-        <section
-          className="onboarding-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="onboarding-title"
-        >
-          <div className="onboarding-visual">
-            <img className="theme-logo" src={openBenchLogo} alt="" />
-            <div className="onboarding-flow">
-              <span>Compile</span>
-              <b>→</b>
-              <span>Simulate</span>
-              <b>→</b>
-              <span>Inspect</span>
-              <b>→</b>
-              <span>RTL</span>
-            </div>
+    return <TutorialIntroduction {...{ onSkip, opening, startError, startTutorial }} />;
+  if (step > TASKS.length) return <TutorialComplete onFinish={onFinish} />;
+  return <TutorialTask step={step} onSkip={onSkip} />;
+}
+
+function TutorialIntroduction({
+  onSkip,
+  opening,
+  startError,
+  startTutorial,
+}: {
+  onSkip: () => void;
+  opening: boolean;
+  startError: string;
+  startTutorial: () => Promise<void>;
+}) {
+  return (
+    <div className="modal-backdrop onboarding-backdrop">
+      <section
+        className="onboarding-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-title"
+      >
+        <div className="onboarding-visual">
+          <img className="theme-logo" src={openBenchLogo} alt="" />
+          <div className="onboarding-flow">
+            <span>Compile</span>
+            <b>→</b>
+            <span>Simulate</span>
+            <b>→</b>
+            <span>Inspect</span>
+            <b>→</b>
+            <span>RTL</span>
           </div>
-          <div className="onboarding-content">
-            <div className="onboarding-top">
-              <small>QUICK START</small>
-              <button onClick={onSkip}>Skip tutorial</button>
-            </div>
-            <h1 id="onboarding-title">Learn OpenBench by using it</h1>
-            <p>
-              Practice the complete workflow in an example project. OpenBench waits for each action
-              before continuing.
-            </p>
-            <ul>
-              <li>No toolchain setup required</li>
-              <li>Your own projects are not changed</li>
-              <li>Takes about two minutes</li>
-            </ul>
-            {startError && <p className="tutorial-start-error">{startError}</p>}
-            <div className="onboarding-progress" aria-label="Tutorial introduction">
-              {TASKS.map((_, index) => (
-                <i key={index} />
-              ))}
-            </div>
-            <div className="dialog-actions">
-              <button
-                className="primary"
-                disabled={opening}
-                onClick={async () => {
-                  setOpening(true);
-                  setStartError('');
-                  try {
-                    await onOpenExample();
-                    setStep(1);
-                  } catch (error) {
-                    setStartError(error instanceof Error ? error.message : String(error));
-                  } finally {
-                    setOpening(false);
-                  }
-                }}
-              >
-                {opening ? 'Opening example…' : 'Start hands-on tutorial'}
-              </button>
-            </div>
+        </div>
+        <div className="onboarding-content">
+          <div className="onboarding-top">
+            <small>QUICK START</small>
+            <button onClick={onSkip}>Skip tutorial</button>
           </div>
-        </section>
+          <h1 id="onboarding-title">Learn OpenBench by using it</h1>
+          <p>
+            Practice the complete workflow in an example project. OpenBench waits for each action
+            before continuing.
+          </p>
+          <ul>
+            <li>No toolchain setup required</li>
+            <li>Your own projects are not changed</li>
+            <li>Takes about two minutes</li>
+          </ul>
+          {startError && <p className="tutorial-start-error">{startError}</p>}
+          <TutorialProgress />
+          <div className="dialog-actions">
+            <button className="primary" disabled={opening} onClick={() => void startTutorial()}>
+              {opening ? 'Opening example…' : 'Start hands-on tutorial'}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TutorialComplete({ onFinish }: { onFinish: () => void }) {
+  return (
+    <aside className="tutorial-coach tutorial-complete" role="status">
+      <div className="onboarding-top">
+        <small>TUTORIAL COMPLETE</small>
       </div>
-    );
+      <h2>You completed the workflow</h2>
+      <p>You compiled HDL, inspected a waveform, elaborated RTL, and returned to the source.</p>
+      <div className="tutorial-summary">
+        <span>✓ Compile</span>
+        <span>✓ Simulate</span>
+        <span>✓ Waveform</span>
+        <span>✓ RTL</span>
+        <span>✓ Source</span>
+      </div>
+      <button className="primary" onClick={onFinish}>
+        Finish
+      </button>
+    </aside>
+  );
+}
 
-  if (step > TASKS.length)
-    return (
-      <aside className="tutorial-coach tutorial-complete" role="status">
-        <div className="onboarding-top">
-          <small>TUTORIAL COMPLETE</small>
-        </div>
-        <h2>You completed the workflow</h2>
-        <p>You compiled HDL, inspected a waveform, elaborated RTL, and returned to the source.</p>
-        <div className="tutorial-summary">
-          <span>✓ Compile</span>
-          <span>✓ Simulate</span>
-          <span>✓ Waveform</span>
-          <span>✓ RTL</span>
-          <span>✓ Source</span>
-        </div>
-        <button className="primary" onClick={onFinish}>
-          Finish
-        </button>
-      </aside>
-    );
-
+function TutorialTask({ step, onSkip }: { step: number; onSkip: () => void }) {
   const task = TASKS[step - 1];
   return (
     <aside className="tutorial-coach" role="status" aria-live="polite">
@@ -187,14 +201,23 @@ export default function OnboardingDialog({
       <h2>{task.title}</h2>
       <p>{task.text}</p>
       <div className="tutorial-hint">{task.hint}</div>
-      <div className="onboarding-progress" aria-label={`Task ${step} of ${TASKS.length}`}>
-        {TASKS.map((_, index) => (
-          <i key={index} className={index < step ? 'active' : ''} />
-        ))}
-      </div>
+      <TutorialProgress step={step} />
       <small className="tutorial-waiting">
         <i /> Waiting for you to complete this task
       </small>
     </aside>
+  );
+}
+
+function TutorialProgress({ step = 0 }: { step?: number }) {
+  return (
+    <div
+      className="onboarding-progress"
+      aria-label={step ? `Task ${step} of ${TASKS.length}` : 'Tutorial introduction'}
+    >
+      {TASKS.map((_, index) => (
+        <i key={index} className={step && index < step ? 'active' : ''} />
+      ))}
+    </div>
   );
 }

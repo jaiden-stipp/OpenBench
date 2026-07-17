@@ -1,12 +1,11 @@
-import { analyzeHdlFiles } from '../shared/hdlStructure.js';
+import { analyzeHdlFiles, hasHdlToken } from '../shared/hdlStructure.js';
 
 export function analyzeProjectSources(files, settings = {}) {
   const analysis = analyzeHdlFiles(files);
   const { modules, testbenches, topCandidates, missingModules, duplicates } = analysis;
-  const simulationText = files
-    .filter((file) => testbenches.some((testbench) => testbench.file === file.path))
-    .map((file) => file.content)
-    .join('\n');
+  const simulationSources = files.filter((file) =>
+    testbenches.some((testbench) => testbench.file === file.path),
+  );
   const issues = [];
   if (!modules.length)
     issues.push({
@@ -46,13 +45,18 @@ export function analyzeProjectSources(files, settings = {}) {
       title: 'No obvious testbench found',
       detail: 'Generate a starter testbench after RTL Analysis or add a module named *_tb.',
     });
-  if (testbenches.length && !/\$(?:dumpvars|fstDumpvars)\b/.test(simulationText))
+  if (
+    testbenches.length &&
+    !simulationSources.some(
+      (file) => hasHdlToken(file.content, '$dumpvars') || hasHdlToken(file.content, '$fstDumpvars'),
+    )
+  )
     issues.push({
       severity: 'warning',
       title: 'Waveform dumping is not visible',
       detail: 'The testbench may run without producing a VCD/FST trace.',
     });
-  if (testbenches.length && !/\$finish\b/.test(simulationText))
+  if (testbenches.length && !simulationSources.some((file) => hasHdlToken(file.content, '$finish')))
     issues.push({
       severity: 'warning',
       title: 'Testbench may never finish',
@@ -87,7 +91,7 @@ export function explainWaveform(data) {
     });
   const flat = (data.signals || []).filter((signal) => (signal.changes || []).length <= 1);
   const unknown = (data.signals || []).filter((signal) =>
-    (signal.changes || []).some((change) => /[xz]/i.test(change.value)),
+    (signal.changes || []).some((change) => /[xz]/i.test(change[1])),
   );
   const clocks = (data.signals || []).filter(
     (signal) => /(?:^|[._])clk|clock/i.test(signal.name) && (signal.changes || []).length > 2,

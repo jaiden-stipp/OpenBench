@@ -55,34 +55,31 @@ export function useAppShortcuts(options: ShortcutOptions) {
 
 function handleShortcut(event: KeyboardEvent, options: ShortcutOptions) {
   const modifier = event.ctrlKey || event.metaKey;
-  if (modifier && event.shiftKey && event.key.toLowerCase() === 'n') {
-    event.preventDefault();
-    void options.beginNewProject();
-  } else if (modifier && event.key.toLowerCase() === 'o') {
-    event.preventDefault();
-    void options.openProject();
-  } else if (modifier && event.key.toLowerCase() === 'n') {
-    event.preventDefault();
-    if (options.projectReady)
-      options.setPrompt({ kind: 'new-file', initialValue: 'new_module.sv' });
-  } else if (modifier && event.shiftKey && event.key.toLowerCase() === 'b') {
-    event.preventDefault();
-    if (options.projectReady && !options.busy) void options.runCompile();
-  } else if (modifier && event.shiftKey && event.key.toLowerCase() === 'r') {
-    event.preventDefault();
-    if (options.projectReady && !options.busy) void options.runRtl();
-  } else if (event.key === 'F5') {
-    event.preventDefault();
-    if (options.projectReady && !options.busy) void options.runSimulation();
-  } else if (
-    options.activeView === 'waveform' &&
-    modifier &&
-    (event.key === '+' || event.key === '=')
-  ) {
-    event.preventDefault();
-    window.dispatchEvent(new CustomEvent('rtlbench:wave-zoom', { detail: 0.5 }));
-  } else if (options.activeView === 'waveform' && modifier && event.key === '-') {
-    event.preventDefault();
-    window.dispatchEvent(new CustomEvent('rtlbench:wave-zoom', { detail: 2 }));
-  }
+  const key = event.key.toLowerCase();
+  const ready = options.projectReady && !options.busy;
+  const shortcuts = [
+    [modifier && event.shiftKey && key === 'n', () => void options.beginNewProject()],
+    [modifier && key === 'o', () => void options.openProject()],
+    [
+      modifier && !event.shiftKey && key === 'n',
+      () =>
+        options.projectReady &&
+        options.setPrompt({ kind: 'new-file', initialValue: 'new_module.sv' }),
+    ],
+    [modifier && event.shiftKey && key === 'b', () => ready && void options.runCompile()],
+    [modifier && event.shiftKey && key === 'r', () => ready && void options.runRtl()],
+    [event.key === 'F5', () => ready && void options.runSimulation()],
+    [
+      options.activeView === 'waveform' && modifier && (event.key === '+' || event.key === '='),
+      () => window.dispatchEvent(new CustomEvent('rtlbench:wave-zoom', { detail: 0.5 })),
+    ],
+    [
+      options.activeView === 'waveform' && modifier && event.key === '-',
+      () => window.dispatchEvent(new CustomEvent('rtlbench:wave-zoom', { detail: 2 })),
+    ],
+  ] as const;
+  const match = shortcuts.find(([matches]) => matches);
+  if (!match) return;
+  event.preventDefault();
+  match[1]();
 }

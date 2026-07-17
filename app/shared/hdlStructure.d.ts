@@ -7,6 +7,13 @@ export function parseHdlStructure(content: string): {
   instantiations: Array<Omit<HdlInstantiation, 'file'>>;
 };
 
+export function tokenizeHdl(content: string): string[];
+export function hasHdlToken(content: string, expected: string): boolean;
+export function parsePackageReferences(content: string): {
+  declarations: string[];
+  imports: string[];
+};
+
 export function analyzeHdlFiles(files: HdlFile[]): {
   roles: Record<string, 'design' | 'testbench' | 'include'>;
   modules: HdlModule[];

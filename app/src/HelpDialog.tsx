@@ -34,36 +34,7 @@ export default function HelpDialog({
           OpenBench supports synthesizable RTL and straightforward procedural testbenches across
           Icarus and Verilator.
         </p>
-        <div className="support-grid">
-          <section>
-            <h3>Good fit</h3>
-            <ul>
-              <li>
-                Modules, parameters, wires, and <code>logic</code>
-              </li>
-              <li>
-                <code>always</code>, <code>always_comb</code>, and <code>always_ff</code>
-              </li>
-              <li>Assignments, if/case, loops, enums, and packed vectors</li>
-              <li>
-                Simple testbench <code>initial</code>/<code>always</code> blocks, delays, clocks,
-                reset, <code>$display</code>, and VCD dumping
-              </li>
-            </ul>
-          </section>
-          <section>
-            <h3>Outside the supported subset</h3>
-            <ul>
-              <li>UVM, classes, factories, mailboxes, and constrained randomization</li>
-              <li>DPI/VPI integrations and vendor-specific primitives</li>
-              <li>
-                Advanced assertions, coverage, interfaces, or package behavior where backend support
-                differs
-              </li>
-              <li>Timing-accurate gate-level or analog simulation</li>
-            </ul>
-          </section>
-        </div>
+        <SupportedHdlSummary />
         <div className="support-backend">
           <strong>
             Selected backend: {simulator === 'iverilog' ? 'Icarus Verilog' : 'Verilator'}
@@ -99,6 +70,38 @@ export default function HelpDialog({
             Got it
           </button>
         </div>
+      </section>
+    </div>
+  );
+}
+
+function SupportedHdlSummary() {
+  return (
+    <div className="support-grid">
+      <section>
+        <h3>Good fit</h3>
+        <ul>
+          <li>
+            Modules, parameters, wires, and <code>logic</code>
+          </li>
+          <li>
+            <code>always</code>, <code>always_comb</code>, and <code>always_ff</code>
+          </li>
+          <li>Assignments, if/case, loops, enums, and packed vectors</li>
+          <li>
+            Simple testbench <code>initial</code>/<code>always</code> blocks, delays, clocks, reset,
+            <code>$display</code>, and VCD dumping
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h3>Outside the supported subset</h3>
+        <ul>
+          <li>UVM, classes, factories, mailboxes, and constrained randomization</li>
+          <li>DPI/VPI integrations and vendor-specific primitives</li>
+          <li>Advanced assertions, coverage, interfaces, or backend-specific package behavior</li>
+          <li>Timing-accurate gate-level or analog simulation</li>
+        </ul>
       </section>
     </div>
   );

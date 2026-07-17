@@ -1,6 +1,7 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ActiveView, OpenFile } from '../types/ui';
 import type { YosysNetlist } from '../netlistGraph';
+import { postWaveformRequest } from '../waveformWorkerClient';
 
 type Cursor = { path: string; line: number; column: number } | null;
 
@@ -52,6 +53,7 @@ export function useSessionSave(options: SessionSaveOptions) {
 
 type SessionRestoreOptions = {
   loadProject: (project: ProjectData, resetWorkspace?: boolean) => Promise<void>;
+  projectGenerationRef: MutableRefObject<number>;
   setActiveFilePath: Dispatch<SetStateAction<string | null>>;
   setActiveView: Dispatch<SetStateAction<ActiveView>>;
   setEditorCursor: Dispatch<SetStateAction<Cursor>>;
@@ -67,6 +69,7 @@ type SessionRestoreOptions = {
 export function useSessionRestore(options: SessionRestoreOptions) {
   const {
     loadProject,
+    projectGenerationRef,
     setActiveFilePath,
     setActiveView,
     setEditorCursor,
@@ -83,6 +86,7 @@ export function useSessionRestore(options: SessionRestoreOptions) {
     void restoreSession(
       {
         loadProject,
+        projectGenerationRef,
         setActiveFilePath,
         setActiveView,
         setEditorCursor,
@@ -103,6 +107,7 @@ export function useSessionRestore(options: SessionRestoreOptions) {
     };
   }, [
     loadProject,
+    projectGenerationRef,
     setActiveFilePath,
     setActiveView,
     setEditorCursor,
@@ -172,10 +177,11 @@ async function restoreActiveView(
 ) {
   if (activeView === 'waveform') {
     try {
-      options.waveformWorkerRef.current?.postMessage({
-        ...(await window.openbench.readLatestVcd()),
-        purpose: 'open',
-      });
+      postWaveformRequest(
+        options.waveformWorkerRef.current,
+        { ...(await window.openbench.readLatestVcd()), purpose: 'open' },
+        options.projectGenerationRef.current,
+      );
       return;
     } catch {
       options.setActiveView(files.length ? 'source' : 'waveform');

@@ -77,7 +77,7 @@ test('explains flat unknown waveforms without inventing results', () => {
   const result = explainWaveform({
     endTime: 10,
     timestampCount: 2,
-    signals: [{ name: 'state', changes: [{ time: 0, value: 'x' }] }],
+    signals: [{ name: 'state', changes: [[0, 'x']] }],
   });
   assert.ok(result.some((item) => item.title.includes('never changed')));
   assert.ok(result.some((item) => item.title.includes('X or Z')));

@@ -23,3 +23,37 @@ test('package providers precede SystemVerilog files that import them', async () 
     await fsp.rm(root, { recursive: true, force: true });
   }
 });
+
+test('comments and strings do not create package dependencies', async () => {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-source-comments-'));
+  try {
+    await fsp.writeFile(
+      path.join(root, 'first.sv'),
+      'module first; string note = "import later_pkg::*;"; // import later_pkg::*;\nendmodule',
+    );
+    await fsp.writeFile(
+      path.join(root, 'second.sv'),
+      '// package later_pkg;\nmodule second; endmodule',
+    );
+    assert.deepEqual(await orderSourceFiles(root, ['first.sv', 'second.sv']), [
+      'first.sv',
+      'second.sv',
+    ]);
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('reports package dependency cycles instead of silently changing order', async () => {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-source-cycle-'));
+  try {
+    await fsp.writeFile(path.join(root, 'a.sv'), 'package a; import b::*; endpackage');
+    await fsp.writeFile(path.join(root, 'b.sv'), 'package b; import a::*; endpackage');
+    await assert.rejects(
+      () => orderSourceFiles(root, ['a.sv', 'b.sv']),
+      /package dependency cycle.*a\.sv.*b\.sv/i,
+    );
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});

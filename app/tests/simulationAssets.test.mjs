@@ -36,3 +36,28 @@ test('adds an editable-source-independent VCD monitor when a testbench has no du
     await fsp.rm(root, { recursive: true, force: true });
   }
 });
+
+test('commented or quoted dump text does not suppress automatic tracing', async () => {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-trace-comments-'));
+  try {
+    const source = path.join(root, 'cpu_tb.sv');
+    await fsp.writeFile(
+      source,
+      'module cpu_tb; // $dumpvars(0, cpu_tb);\ninitial $display("$dumpvars("); endmodule\n',
+    );
+    assert.ok(await createTraceMonitor(root, 'cpu_tb', [source]));
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('recognizes the valid argument-free dumpvars form', async () => {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-trace-bare-'));
+  try {
+    const source = path.join(root, 'cpu_tb.sv');
+    await fsp.writeFile(source, 'module cpu_tb; initial $dumpvars; endmodule\n');
+    assert.equal(await createTraceMonitor(root, 'cpu_tb', [source]), null);
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
