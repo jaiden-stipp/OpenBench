@@ -31,9 +31,16 @@ async function stage() {
     `yosys${executableSuffix}`,
     `yosys-abc${executableSuffix}`,
   ];
-  if (process.platform === 'win32') binaries.push('libvvp-1.dll');
   await fsp.rm(targetRoot, { recursive: true, force: true });
   await Promise.all(binaries.map((name) => copyFile(path.join('bin', name))));
+  if (process.platform === 'win32') {
+    const binEntries = await fsp.readdir(path.join(sourceRoot, 'bin'), { withFileTypes: true });
+    await Promise.all(
+      binEntries
+        .filter((entry) => entry.isFile() && /\.dll$/i.test(entry.name))
+        .map((entry) => copyFile(path.join('bin', entry.name))),
+    );
+  }
   await Promise.all(['lib/ivl', 'share/verilator', 'share/yosys'].map(copyDirectory));
   if (process.platform !== 'win32')
     await Promise.all(
