@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="app/src/assets/rtldeck-logo.png" width="180" alt="RTLDeck logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="app/src/assets/rtldeck-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="app/src/assets/rtldeck-logo.png">
+    <img src="app/src/assets/rtldeck-logo.png" width="180" alt="RTLDeck logo">
+  </picture>
 </p>
 
 <h1 align="center">RTLDeck</h1>
@@ -18,11 +22,11 @@
 ## RTLDeck in action
 
 <p align="center">
-  <img src="docs/assets/rtldeck-waveform.png" width="1200" alt="RTLDeck displaying a simulated Verilog project with its interactive waveform viewer and readable simulation output">
+  <img src="docs/assets/rtldeck-cpu-workflow.jpg" width="1200" alt="RTLDeck displaying a genuine RV32I CPU simulation with interactive waveforms and readable compiler guidance">
 </p>
 
 <p align="center">
-  <em>A genuine Icarus Verilog simulation displayed in RTLDeck's interactive waveform viewer.</em>
+  <em>A genuine 219-signal RV32I CPU simulation, with readable compiler guidance alongside the interactive waveform viewer.</em>
 </p>
 
 ## Download and install

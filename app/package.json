@@ -1,6 +1,6 @@
 {
   "name": "rtldeck",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A low-friction desktop workbench for learning and debugging Verilog/SystemVerilog designs.",
   "homepage": "https://github.com/jaiden-stipp/RTLDeck",
   "repository": {
