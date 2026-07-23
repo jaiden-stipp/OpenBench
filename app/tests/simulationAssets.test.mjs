@@ -9,9 +9,9 @@ const require = createRequire(import.meta.url);
 const { createTraceMonitor, stageSimulationAssets } = require('../electron/simulator.cjs');
 
 test('stages memory images without copying unrelated project output', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-assets-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-assets-'));
   try {
-    const run = path.join(root, '.openbench-runs', 'current');
+    const run = path.join(root, '.rtldeck-runs', 'current');
     await fsp.mkdir(path.join(root, 'programs'), { recursive: true });
     await fsp.mkdir(run, { recursive: true });
     await fsp.writeFile(path.join(root, 'programs', 'cpu.hex'), '00100093\n');
@@ -25,7 +25,7 @@ test('stages memory images without copying unrelated project output', async () =
 });
 
 test('adds an editable-source-independent VCD monitor when a testbench has no dump calls', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-trace-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-trace-'));
   try {
     const source = path.join(root, 'cpu_tb.sv');
     await fsp.writeFile(source, 'module cpu_tb; initial #10 $finish; endmodule\n');
@@ -38,7 +38,7 @@ test('adds an editable-source-independent VCD monitor when a testbench has no du
 });
 
 test('commented or quoted dump text does not suppress automatic tracing', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-trace-comments-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-trace-comments-'));
   try {
     const source = path.join(root, 'cpu_tb.sv');
     await fsp.writeFile(
@@ -52,7 +52,7 @@ test('commented or quoted dump text does not suppress automatic tracing', async 
 });
 
 test('recognizes the valid argument-free dumpvars form', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-trace-bare-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-trace-bare-'));
   try {
     const source = path.join(root, 'cpu_tb.sv');
     await fsp.writeFile(source, 'module cpu_tb; initial $dumpvars; endmodule\n');

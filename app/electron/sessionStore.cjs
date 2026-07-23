@@ -43,17 +43,22 @@ function normalizeSession(value = {}) {
   };
 }
 
-function createSessionStore(baseDirectory) {
+function createSessionStore(baseDirectory, { legacyDirectories = [] } = {}) {
   const sessionPath = path.join(baseDirectory, 'session.json');
   const recoveryDirectory = path.join(baseDirectory, 'recovery');
+  const draftName = (projectRoot, relativePath) =>
+    `${crypto.createHash('sha256').update(`${projectRoot}\0${relativePath}`).digest('hex')}.json`;
   const draftPath = (projectRoot, relativePath) =>
-    path.join(
-      recoveryDirectory,
-      `${crypto.createHash('sha256').update(`${projectRoot}\0${relativePath}`).digest('hex')}.json`,
-    );
+    path.join(recoveryDirectory, draftName(projectRoot, relativePath));
   return {
     async loadSession() {
-      return normalizeSession(await readJson(sessionPath, {}));
+      const current = await readJson(sessionPath, null);
+      if (current) return normalizeSession(current);
+      for (const legacyDirectory of legacyDirectories) {
+        const legacy = await readJson(path.join(legacyDirectory, 'session.json'), null);
+        if (legacy) return normalizeSession(legacy);
+      }
+      return normalizeSession();
     },
     async saveSession(value) {
       const normalized = normalizeSession(value);
@@ -61,7 +66,14 @@ function createSessionStore(baseDirectory) {
       return normalized;
     },
     async loadDraft(projectRoot, relativePath) {
-      const value = await readJson(draftPath(projectRoot, relativePath), null);
+      let value = await readJson(draftPath(projectRoot, relativePath), null);
+      for (const legacyDirectory of legacyDirectories) {
+        if (value) break;
+        value = await readJson(
+          path.join(legacyDirectory, 'recovery', draftName(projectRoot, relativePath)),
+          null,
+        );
+      }
       return value?.projectRoot === projectRoot &&
         value?.path === relativePath &&
         typeof value.content === 'string'

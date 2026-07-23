@@ -1,15 +1,15 @@
 name: Bug report
-description: Report a reproducible OpenBench problem
+description: Report a reproducible RTLDeck problem
 title: "[Bug]: "
 labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: Thanks for helping improve OpenBench. Please remove private HDL before attaching a project.
+      value: Thanks for helping improve RTLDeck. Please remove private HDL before attaching a project.
   - type: input
     id: version
     attributes:
-      label: OpenBench version
+      label: RTLDeck version
       placeholder: 0.1.1
     validations:
       required: true

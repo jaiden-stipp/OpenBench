@@ -19,7 +19,6 @@ export default function App() {
 function AppShell({ state, refs, controller }: ShellProps) {
   return (
     <div className={`app-shell ${state.theme}`}>
-      <LogoFilter />
       <Header state={state} controller={controller} />
       <Workspace state={state} refs={refs} controller={controller} />
       <StatusBar state={state} />
@@ -29,21 +28,6 @@ function AppShell({ state, refs, controller }: ShellProps) {
 }
 
 type ShellProps = { state: AppState; refs: AppRefs; controller: AppController };
-
-function LogoFilter() {
-  return (
-    <svg className="logo-filter-defs" aria-hidden="true" focusable="false">
-      <filter id="openbench-logo-dark" colorInterpolationFilters="sRGB">
-        <feComponentTransfer>
-          <feFuncR type="linear" slope="-6.96875" intercept="1" />
-          <feFuncG type="linear" slope="-0.62420" intercept="1" />
-          <feFuncB type="linear" slope="-0.57407" intercept="1" />
-          <feFuncA type="identity" />
-        </feComponentTransfer>
-      </filter>
-    </svg>
-  );
-}
 
 function Header({ state, controller }: Omit<ShellProps, 'refs'>) {
   return (

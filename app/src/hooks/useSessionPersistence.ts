@@ -29,7 +29,7 @@ export function useSessionSave(options: SessionSaveOptions) {
     if (!sessionReady) return;
     const timer = setTimeout(
       () =>
-        void window.openbench.saveSession({
+        void window.rtldeck.saveSession({
           projectRoot: projectRoot || '',
           openFiles: openFiles.map((file) => file.path),
           activeFile: activeFilePath || '',
@@ -123,10 +123,10 @@ export function useSessionRestore(options: SessionRestoreOptions) {
 
 async function restoreSession(options: SessionRestoreOptions, cancelled: () => boolean) {
   try {
-    const session = await window.openbench.loadSession();
+    const session = await window.rtldeck.loadSession();
     const current = session.projectRoot
-      ? await window.openbench.restoreProject(session.projectRoot)
-      : await window.openbench.getActiveProject();
+      ? await window.rtldeck.restoreProject(session.projectRoot)
+      : await window.rtldeck.getActiveProject();
     if (!current || cancelled()) return;
     await options.loadProject(current, false);
     if (cancelled()) return;
@@ -156,8 +156,8 @@ async function restoreOpenFiles(sessionFiles: string[], projectFiles: string[]) 
   const restored: OpenFile[] = [];
   for (const path of sessionFiles.filter((file) => projectFiles.includes(file))) {
     try {
-      const disk = await window.openbench.readFile(path);
-      const draft = await window.openbench.loadRecoveryDraft(path);
+      const disk = await window.rtldeck.readFile(path);
+      const draft = await window.rtldeck.loadRecoveryDraft(path);
       restored.push({
         ...disk,
         content: draft?.content ?? disk.content,
@@ -179,7 +179,7 @@ async function restoreActiveView(
     try {
       postWaveformRequest(
         options.waveformWorkerRef.current,
-        { ...(await window.openbench.readLatestVcd()), purpose: 'open' },
+        { ...(await window.rtldeck.readLatestVcd()), purpose: 'open' },
         options.projectGenerationRef.current,
       );
       return;
@@ -190,7 +190,7 @@ async function restoreActiveView(
   }
   if (activeView === 'schematic') {
     try {
-      const result = await window.openbench.readLatestNetlist();
+      const result = await window.rtldeck.readLatestNetlist();
       options.setNetlist(result.netlist);
       options.setRtlTop(result.top);
       options.setActiveView('schematic');

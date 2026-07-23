@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module rtlbench_smoke(
+module rtldeck_smoke(
     input  logic       clk,
     input  logic       rst_n,
     input  logic [3:0] value,

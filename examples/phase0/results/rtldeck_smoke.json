@@ -1,10 +1,10 @@
 {
   "creator": "Yosys 0.67+31 (git sha1 22c15a7ec, Release, GNU /usr/bin/x86_64-w64-mingw32-g++ 13.2.1)",
   "modules": {
-    "rtlbench_smoke": {
+    "rtldeck_smoke": {
       "attributes": {
         "top": "00000000000000000000000000000001",
-        "src": "rtlbench_smoke.sv:1.1-13.10"
+        "src": "rtldeck_smoke.sv:1.1-13.10"
       },
       "ports": {
         "clk": {
@@ -25,7 +25,7 @@
         }
       },
       "cells": {
-        "$add$rtlbench_smoke.sv:11$3": {
+        "$add$rtldeck_smoke.sv:11$3": {
           "hide_name": 1,
           "type": "$add",
           "parameters": {
@@ -36,7 +36,7 @@
             "Y_WIDTH": "00000000000000000000000000000100"
           },
           "attributes": {
-            "src": "rtlbench_smoke.sv:11.22-11.35"
+            "src": "rtldeck_smoke.sv:11.22-11.35"
           },
           "port_directions": {
             "A": "input",
@@ -68,7 +68,7 @@
             "Y": [ 16 ]
           }
         },
-        "$logic_not$rtlbench_smoke.sv:8$2": {
+        "$logic_not$rtldeck_smoke.sv:8$2": {
           "hide_name": 1,
           "type": "$logic_not",
           "parameters": {
@@ -77,7 +77,7 @@
             "Y_WIDTH": "00000000000000000000000000000001"
           },
           "attributes": {
-            "src": "rtlbench_smoke.sv:8.13-8.19"
+            "src": "rtldeck_smoke.sv:8.13-8.19"
           },
           "port_directions": {
             "A": "input",
@@ -99,7 +99,7 @@
           },
           "attributes": {
             "always_ff": "00000000000000000000000000000001",
-            "src": "rtlbench_smoke.sv:7.5-12.8"
+            "src": "rtldeck_smoke.sv:7.5-12.8"
           },
           "port_directions": {
             "ARST": "input",
@@ -120,14 +120,14 @@
           "hide_name": 1,
           "bits": [ 12, 13, 14, 15 ],
           "attributes": {
-            "src": "rtlbench_smoke.sv:7.5-12.8"
+            "src": "rtldeck_smoke.sv:7.5-12.8"
           }
         },
-        "$add$rtlbench_smoke.sv:11$3_Y": {
+        "$add$rtldeck_smoke.sv:11$3_Y": {
           "hide_name": 1,
           "bits": [ 12, 13, 14, 15 ],
           "attributes": {
-            "src": "rtlbench_smoke.sv:11.22-11.35"
+            "src": "rtldeck_smoke.sv:11.22-11.35"
           }
         },
         "$auto$rtlil.cc:3267:Not$5": {
@@ -142,39 +142,39 @@
           "attributes": {
           }
         },
-        "$logic_not$rtlbench_smoke.sv:8$2_Y": {
+        "$logic_not$rtldeck_smoke.sv:8$2_Y": {
           "hide_name": 1,
           "bits": [ 17 ],
           "attributes": {
-            "src": "rtlbench_smoke.sv:8.13-8.19"
+            "src": "rtldeck_smoke.sv:8.13-8.19"
           }
         },
         "clk": {
           "hide_name": 0,
           "bits": [ 2 ],
           "attributes": {
-            "src": "rtlbench_smoke.sv:2.24-2.27"
+            "src": "rtldeck_smoke.sv:2.24-2.27"
           }
         },
         "rst_n": {
           "hide_name": 0,
           "bits": [ 3 ],
           "attributes": {
-            "src": "rtlbench_smoke.sv:3.24-3.29"
+            "src": "rtldeck_smoke.sv:3.24-3.29"
           }
         },
         "total": {
           "hide_name": 0,
           "bits": [ 8, 9, 10, 11 ],
           "attributes": {
-            "src": "rtlbench_smoke.sv:5.24-5.29"
+            "src": "rtldeck_smoke.sv:5.24-5.29"
           }
         },
         "value": {
           "hide_name": 0,
           "bits": [ 4, 5, 6, 7 ],
           "attributes": {
-            "src": "rtlbench_smoke.sv:4.24-4.29"
+            "src": "rtldeck_smoke.sv:4.24-4.29"
           }
         }
       }

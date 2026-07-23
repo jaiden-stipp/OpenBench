@@ -17,21 +17,21 @@ test('real Yosys elaboration produces source-attributed JSON', async () => {
   const result = await runYosysElaboration({
     projectRoot,
     suiteRoot,
-    files: ['rtlbench_smoke.sv'],
-    topModule: 'rtlbench_smoke',
+    files: ['rtldeck_smoke.sv'],
+    topModule: 'rtldeck_smoke',
     onOutput: (_stream, text) => {
       output += text;
     },
   });
   assert.equal(result.code, 0, output);
-  assert.equal(result.top, 'rtlbench_smoke');
+  assert.equal(result.top, 'rtldeck_smoke');
   const json = JSON.parse(await fsp.readFile(result.jsonPath, 'utf8'));
-  const add = Object.values(json.modules.rtlbench_smoke.cells).find((cell) => cell.type === '$add');
-  assert.match(add.attributes.src, /rtlbench_smoke\.sv/);
+  const add = Object.values(json.modules.rtldeck_smoke.cells).find((cell) => cell.type === '$add');
+  assert.match(add.attributes.src, /rtldeck_smoke\.sv/);
 });
 
 test('real Yosys honors configured include paths', async () => {
-  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtlbench-yosys-include-'));
+  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-yosys-include-'));
   const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   try {
     await fsp.mkdir(path.join(projectRoot, 'include files'));
@@ -61,7 +61,7 @@ test('real Yosys honors configured include paths', async () => {
 });
 
 test('real Yosys elaborates package-defined packed structs through the Slang frontend', async () => {
-  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-yosys-package-'));
+  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-yosys-package-'));
   const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   try {
     await fsp.writeFile(
@@ -87,7 +87,7 @@ test('real Yosys elaborates package-defined packed structs through the Slang fro
 });
 
 test('Slang elaborates package sources whose project and filenames contain spaces', async () => {
-  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench slang paths '));
+  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck slang paths '));
   const projectRoot = path.join(parent, 'My HDL Project');
   const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   try {
@@ -121,7 +121,7 @@ test('Slang elaborates package sources whose project and filenames contain space
 });
 
 test('package text in comments and strings stays on the ordinary Yosys frontend', async () => {
-  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-yosys-comments-'));
+  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-yosys-comments-'));
   const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
   try {
     await fsp.writeFile(

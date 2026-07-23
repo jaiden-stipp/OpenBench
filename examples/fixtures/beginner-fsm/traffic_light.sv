@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-// Beginner-sized FSM used to validate OpenBench's first-run workflow.
+// Beginner-sized FSM used to validate RTLDeck's first-run workflow.
 module traffic_light(
     input  logic clk,
     input  logic rst_n,

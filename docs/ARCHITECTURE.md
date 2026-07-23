@@ -1,6 +1,6 @@
-# OpenBench architecture
+# RTLDeck architecture
 
-OpenBench is split into a trusted Electron main process and a sandboxed React renderer. The boundary between them is intentionally explicit: renderer code calls the typed `window.rtlbench` API exposed by the preload script, while filesystem and process execution stay in Electron.
+RTLDeck is split into a trusted Electron main process and a sandboxed React renderer. The boundary between them is intentionally explicit: renderer code calls the typed `window.rtldeck` API exposed by the preload script, while filesystem and process execution stay in Electron.
 
 ## Repository map
 

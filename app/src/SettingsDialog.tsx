@@ -54,7 +54,7 @@ export default function SettingsDialog({
         <div className="settings-heading">
           <div>
             <small>PROJECT</small>
-            <h2 id="settings-title">OpenBench Settings</h2>
+            <h2 id="settings-title">RTLDeck Settings</h2>
           </div>
           <button aria-label="Close settings" onClick={onClose}>
             ×

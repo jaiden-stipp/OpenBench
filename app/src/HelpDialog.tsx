@@ -24,14 +24,14 @@ export default function HelpDialog({
         <div className="settings-heading">
           <div>
             <small>HELP</small>
-            <h2 id="help-title">What OpenBench supports</h2>
+            <h2 id="help-title">What RTLDeck supports</h2>
           </div>
           <button aria-label="Close help" onClick={onClose}>
             ×
           </button>
         </div>
         <p>
-          OpenBench supports synthesizable RTL and straightforward procedural testbenches across
+          RTLDeck supports synthesizable RTL and straightforward procedural testbenches across
           Icarus and Verilator.
         </p>
         <SupportedHdlSummary />
@@ -46,13 +46,13 @@ export default function HelpDialog({
           </span>
         </div>
         <p className="help-note">
-          When a tool reports a known unsupported construct, OpenBench adds a plain-language,
+          When a tool reports a known unsupported construct, RTLDeck adds a plain-language,
           clickable explanation beside the untouched raw message.
         </p>
         <section className="feedback-card">
           <div>
             <small>FEEDBACK + BUG REPORTS</small>
-            <h3>Help shape OpenBench</h3>
+            <h3>Help shape RTLDeck</h3>
             <p>
               Send feedback directly to <strong>jaidenstipp@gmail.com</strong>. The buttons open
               your default email app with useful project details already filled in.

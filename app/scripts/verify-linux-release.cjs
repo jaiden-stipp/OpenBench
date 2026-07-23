@@ -38,7 +38,7 @@ fs.writeFileSync(checksumFile, `${checksums}\n`, 'utf8');
 
 const signingReady = Boolean(process.env.LINUX_GPG_PRIVATE_KEY && process.env.LINUX_GPG_PASSPHRASE);
 if (signingReady) {
-  const gpgHome = fs.mkdtempSync(path.join(os.tmpdir(), 'openbench-release-gpg-'));
+  const gpgHome = fs.mkdtempSync(path.join(os.tmpdir(), 'rtldeck-release-gpg-'));
   try {
     const environment = { ...process.env, GNUPGHOME: gpgHome };
     run('gpg', ['--batch', '--import'], {

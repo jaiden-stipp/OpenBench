@@ -15,7 +15,7 @@ test('portable Icarus compiles the real Phase 0 HDL project', async () => {
   const run = startIcarusCompile({
     projectRoot,
     suiteRoot,
-    files: ['rtlbench_smoke.sv', 'rtlbench_smoke_tb.sv'],
+    files: ['rtldeck_smoke.sv', 'rtldeck_smoke_tb.sv'],
     onOutput: (_stream, text) => {
       output += text;
     },
@@ -31,7 +31,7 @@ test('portable Verilator lints the real Phase 0 HDL project', async () => {
   const run = startVerilatorLint({
     projectRoot,
     suiteRoot,
-    files: ['rtlbench_smoke.sv', 'rtlbench_smoke_tb.sv'],
+    files: ['rtldeck_smoke.sv', 'rtldeck_smoke_tb.sv'],
     onOutput: (_stream, text) => {
       output += text;
     },

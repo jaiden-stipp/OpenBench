@@ -298,7 +298,7 @@ function useFeedbackAction(state: AppState) {
   return useCallback(
     async (kind: 'feedback' | 'bug') => {
       try {
-        await window.openbench.composeFeedbackEmail(kind, simulator);
+        await window.rtldeck.composeFeedbackEmail(kind, simulator);
         setStatus(
           kind === 'bug'
             ? 'Opened bug report in your email app'
@@ -340,7 +340,7 @@ function useMenuActions(
       save: () => void execution.save(),
       saveAll: () => void execution.saveAllDirtyFiles(),
       settings: () => state.setShowSettings(true),
-      close: () => void window.openbench.windowAction('close'),
+      close: () => void window.rtldeck.windowAction('close'),
       undo: () => refs.editorRef.current?.trigger('menu', 'undo', null),
       redo: () => refs.editorRef.current?.trigger('menu', 'redo', null),
       cut: () => refs.editorRef.current?.trigger('menu', 'editor.action.clipboardCutAction', null),
@@ -352,16 +352,16 @@ function useMenuActions(
       source: () => state.setActiveView('source'),
       waveform: () => state.setActiveView('waveform'),
       schematic: () => state.setActiveView('schematic'),
-      zoomIn: () => window.dispatchEvent(new CustomEvent('rtlbench:wave-zoom', { detail: 0.5 })),
-      zoomOut: () => window.dispatchEvent(new CustomEvent('rtlbench:wave-zoom', { detail: 2 })),
+      zoomIn: () => window.dispatchEvent(new CustomEvent('rtldeck:wave-zoom', { detail: 0.5 })),
+      zoomOut: () => window.dispatchEvent(new CustomEvent('rtldeck:wave-zoom', { detail: 2 })),
       theme: () => state.setTheme((value) => (value === 'dark' ? 'light' : 'dark')),
       explorerLeft: () => state.setExplorerDock('left'),
       explorerRight: () => state.setExplorerDock('right'),
       consoleBottom: () => state.setConsoleDock('bottom'),
       consoleRight: () => state.setConsoleDock('right'),
       watch: () => state.setWatchMode((value) => !value),
-      minimize: () => void window.openbench.windowAction('minimize'),
-      maximize: () => void window.openbench.windowAction('maximize'),
+      minimize: () => void window.rtldeck.windowAction('minimize'),
+      maximize: () => void window.rtldeck.windowAction('maximize'),
       tutorial: () => state.setShowTutorial(true),
       guidance: () => state.setShowGuidance(true),
       example: () => void projects.openExampleProject(),

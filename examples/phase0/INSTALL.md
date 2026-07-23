@@ -1,11 +1,11 @@
-# OpenBench Phase 0 toolchain requirements
+# RTLDeck Phase 0 toolchain requirements
 
-OpenBench invokes real EDA tools; it does not fabricate simulation or netlist data.
+RTLDeck invokes real EDA tools; it does not fabricate simulation or netlist data.
 
 Install and place on `PATH`:
 
 - **Yosys** (required): elaborates Verilog/SystemVerilog supported by the installed Yosys build and writes JSON netlists.
-- **Icarus Verilog** *or* **Verilator** (at least one required): compiles/runs testbenches and produces VCD traces. OpenBench exposes this selection in Project Settings.
+- **Icarus Verilog** *or* **Verilator** (at least one required): compiles/runs testbenches and produces VCD traces. RTLDeck exposes this selection in Project Settings.
 
 On Windows, the most reliable practical option is a supported Linux environment (for example WSL) with the distribution packages. Native Windows package availability and SystemVerilog support vary by release, so tool discovery must use explicit configured executable paths rather than assuming `PATH` alone.
 
@@ -34,5 +34,5 @@ For WSL, run the equivalent smoke commands from the project directory mounted un
 
 Expected real artifacts, created only by successful tool runs:
 
-- `results/rtlbench_smoke.json` — Yosys `write_json` netlist.
-- `results/rtlbench_smoke.vcd` — simulator waveform trace.
+- `results/rtldeck_smoke.json` — Yosys `write_json` netlist.
+- `results/rtldeck_smoke.vcd` — simulator waveform trace.

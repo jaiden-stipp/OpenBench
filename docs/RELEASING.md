@@ -1,6 +1,6 @@
-# Publishing an OpenBench release
+# Publishing an RTLDeck release
 
-OpenBench builds each public package on its native operating system. Do not upload files produced by an unsigned development command.
+RTLDeck builds each public package on its native operating system. Do not upload files produced by an unsigned development command.
 
 ## Required GitHub Actions secrets
 
@@ -36,7 +36,7 @@ App Store Connect API credentials or a `notarytool` keychain profile are also su
 1. Update `app/package.json` with the intended semantic version.
 2. Run `pnpm format:check`, `pnpm build`, and `pnpm test` from `app/`.
 3. Commit and push the release changes.
-4. Open **Actions → Native OpenBench packages → Run workflow** for a preview build.
+4. Open **Actions → Native RTLDeck packages → Run workflow** for a preview build.
 5. Download and inspect all three workflow artifacts.
 6. For a release build, create and push a matching tag such as `v0.1.0`.
 

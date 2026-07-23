@@ -42,7 +42,7 @@ function useCompileAction(options: RunActionOptions) {
     try {
       await saveAllDirtyFiles();
       if (requestGeneration !== projectGenerationRef.current) return;
-      await window.openbench.runCompile();
+      await window.rtldeck.runCompile();
     } catch (error) {
       if (requestGeneration !== projectGenerationRef.current) return;
       setCompiling(false);
@@ -76,12 +76,12 @@ function useSimulationAction(options: RunActionOptions) {
         ...projectSources.map((file) => [file.path, file.content] as const),
         ...openFiles.map((file) => [file.path, file.content] as const),
       ]);
-      const result = await window.openbench.runSimulation(breakpoints);
+      const result = await window.rtldeck.runSimulation(breakpoints);
       if (requestGeneration !== projectGenerationRef.current) return;
       pendingBreakpointHitRef.current = result.breakpointHit || null;
       setHasRunSimulation(true);
       setStatus('Parsing VCD off the UI thread');
-      const latestVcd = await window.openbench.readLatestVcd();
+      const latestVcd = await window.rtldeck.readLatestVcd();
       if (requestGeneration !== projectGenerationRef.current) return;
       postWaveformRequest(waveformWorkerRef.current, latestVcd, requestGeneration);
     } catch (error) {
@@ -123,9 +123,9 @@ function useRtlAction(options: RunActionOptions) {
     try {
       await saveAllDirtyFiles();
       if (requestGeneration !== projectGenerationRef.current) return;
-      await window.openbench.runRtl();
+      await window.rtldeck.runRtl();
       if (requestGeneration !== projectGenerationRef.current) return;
-      const result = await window.openbench.readLatestNetlist();
+      const result = await window.rtldeck.readLatestNetlist();
       if (requestGeneration !== projectGenerationRef.current) return;
       setNetlist(result.netlist);
       setRtlTop(result.top);
@@ -199,8 +199,8 @@ export function useCrossProbeActions(options: CrossProbeOptions) {
   );
   const generateTestbench = async (moduleName: string, stimulus?: StimulusOptions) => {
     try {
-      const generated = await window.openbench.generateTestbench(moduleName, stimulus);
-      options.setProject(await window.openbench.refreshProject());
+      const generated = await window.rtldeck.generateTestbench(moduleName, stimulus);
+      options.setProject(await window.rtldeck.refreshProject());
       await options.openPath(generated.path);
       const found = [
         ...generated.detected.clocks.map((name) => `clock ${name}`),

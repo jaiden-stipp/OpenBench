@@ -189,6 +189,102 @@ export function buildModuleGraph(netlist, moduleName) {
   };
 }
 
+function sourceGroupFor(node) {
+  if (!node.source) return `Generated ${node.symbol === 'generic' ? 'logic' : node.symbol}`;
+  const source = String(node.source).replaceAll('\\', '/');
+  const file = source
+    .match(/(?:^|\|)([^|]+?\.(?:sv|svh|v|vh))(?::\d|$)/i)?.[1]
+    ?.split('/')
+    .at(-1);
+  return file || 'Generated logic';
+}
+
+/**
+ * Collapse a large, flattened Yosys graph into source-file groups. Every group and
+ * connection is derived from the real JSON netlist; callers can still switch back
+ * to buildModuleGraph() for individual cells and nets.
+ */
+export function buildOverviewGraph(netlist, moduleName) {
+  const detail = buildModuleGraph(netlist, moduleName);
+  const ports = detail.nodes.filter((node) => node.kind === 'port');
+  const cells = detail.nodes.filter((node) => node.kind !== 'port');
+  const groupByNode = new Map();
+  const groupNodes = new Map();
+
+  for (const cell of cells) {
+    const name = sourceGroupFor(cell);
+    const id = `group_${encodeURIComponent(name)}`;
+    groupByNode.set(cell.id, id);
+    const current = groupNodes.get(id);
+    if (current) {
+      current.width += 1;
+      if (!current.source && cell.source) current.source = cell.source;
+    } else {
+      groupNodes.set(id, {
+        id,
+        kind: 'module',
+        symbol: 'group',
+        name,
+        type: 'Source group',
+        width: 1,
+        source: cell.source,
+        ports: [],
+      });
+    }
+  }
+
+  const mappedNode = (id) => groupByNode.get(id) || id;
+  const portIds = new Set(ports.map((node) => node.id));
+  const aggregated = new Map();
+  for (const edge of detail.edges) {
+    const source = mappedNode(edge.source);
+    const target = mappedNode(edge.target);
+    if (source === target) continue;
+    const key = `${source}|${target}`;
+    const current = aggregated.get(key);
+    if (current) {
+      current.connectionCount += 1;
+      current.bits.push(...edge.bits);
+    } else {
+      aggregated.set(key, {
+        ...edge,
+        id: `overview_edge_${aggregated.size}`,
+        source,
+        target,
+        sourcePort: portIds.has(source) ? edge.sourcePort : 'output',
+        targetPort: portIds.has(target) ? edge.targetPort : 'input',
+        connectionCount: 1,
+        bits: [...edge.bits],
+      });
+    }
+  }
+
+  const edges = [...aggregated.values()].map(({ connectionCount, ...edge }) => ({
+    ...edge,
+    netName:
+      connectionCount === 1 ? friendlyOverviewNet(edge.netName) : `${connectionCount} connections`,
+  }));
+  const incoming = new Set(edges.map((edge) => edge.target));
+  const outgoing = new Set(edges.map((edge) => edge.source));
+  for (const node of groupNodes.values()) {
+    node.ports = [
+      ...(incoming.has(node.id) ? [{ name: 'input', direction: 'input', width: 1 }] : []),
+      ...(outgoing.has(node.id) ? [{ name: 'output', direction: 'output', width: 1 }] : []),
+    ];
+  }
+
+  return {
+    ...detail,
+    nodes: [...ports, ...groupNodes.values()],
+    edges,
+    overview: true,
+  };
+}
+
+function friendlyOverviewNet(value) {
+  return String(value || '').startsWith('$') || /^bit \d+$/i.test(value) ? 'connection' : value;
+}
+
 export function sourceForNet(netlist, netName) {
   const parts = netName
     .replace(/\s*\[[^\]]+\]\s*$/, '')

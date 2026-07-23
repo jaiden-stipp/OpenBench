@@ -31,6 +31,6 @@ test('accepts Yosys locations that only provide a source line', () => {
 
 test('normalizes slang source paths from a generated run back to the project', () => {
   const netlist = { modules: { cpu: { attributes: { src: '../../rtl/cpu.sv:3.8-4.2' } } } };
-  normalizeNetlistSources(netlist, 'C:/project', 'C:/project/.openbench-runs/yosys-run');
+  normalizeNetlistSources(netlist, 'C:/project', 'C:/project/.rtldeck-runs/yosys-run');
   assert.equal(netlist.modules.cpu.attributes.src, 'rtl/cpu.sv:3.8-4.2');
 });

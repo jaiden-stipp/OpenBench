@@ -1,6 +1,6 @@
-# OpenBench application
+# RTLDeck application
 
-This directory contains the Electron, React, Monaco, ELK, and native-backend integration for OpenBench. The repository-level [README](../README.md) provides the project overview and clone-to-build instructions.
+This directory contains the Electron, React, Monaco, ELK, and native-backend integration for RTLDeck. The repository-level [README](../README.md) provides the project overview and clone-to-build instructions.
 
 ## Beginner workflow
 
@@ -14,7 +14,7 @@ The starter contains synthesizable HDL, an editable procedural testbench, VCD se
 
 ## Project model
 
-- `.openbench.json` stores the project name, explicitly included HDL files, and persistent folders.
+- `.rtldeck.json` stores the project name, explicitly included HDL files, and persistent folders.
 - Existing folders open with a checklist of discovered `.v`, `.sv`, `.vh`, and `.svh` files.
 - The Project sidebar creates files and empty/nested folders. Context menus support rename, duplicate, copy path, reveal, and operating-system trash.
 - Rename, create, import, and removal operations keep file and folder manifest entries synchronized.
@@ -29,7 +29,7 @@ The starter contains synthesizable HDL, an editable procedural testbench, VCD se
 
 ## RTL schematic
 
-- Yosys performs elaboration and writes the JSON netlist; OpenBench does not infer RTL by parsing HDL text.
+- Yosys performs elaboration and writes the JSON netlist; RTLDeck does not infer RTL by parsing HDL text.
 - ELK lays out the graph using fixed anchors derived from Yosys port metadata.
 - Primitive symbols are the blocks themselves: mux trapezoids, register blocks, logic gates, arithmetic nodes, memories, comparisons, and hierarchical modules.
 - Mux data pins enter from the left, the output exits right, and select enters from the bottom.
@@ -38,7 +38,7 @@ The starter contains synthesizable HDL, an editable procedural testbench, VCD se
 
 ## Diagnostics
 
-Raw backend output remains visible. An explicit pattern list adds beginner-oriented `EXPLAIN` rows and clickable source locations without hiding the ground truth. Unmatched error-looking lines are recorded under `.openbench-runs/` so translations can be extended deliberately.
+Raw backend output remains visible. An explicit pattern list adds beginner-oriented `EXPLAIN` rows and clickable source locations without hiding the ground truth. Unmatched error-looking lines are recorded under `.rtldeck-runs/` so translations can be extended deliberately.
 
 ## Continuity and safety
 
@@ -55,7 +55,7 @@ pnpm test
 pnpm start
 ```
 
-Packaging requires a native OSS CAD Suite extraction. Put it in `../.toolchain/oss-cad-suite` or set `OPENBENCH_TOOLCHAIN_SOURCE`, then run:
+Packaging requires a native OSS CAD Suite extraction. Put it in `../.toolchain/oss-cad-suite` or set `RTLDECK_TOOLCHAIN_SOURCE`, then run:
 
 ```bash
 pnpm toolchain:stage

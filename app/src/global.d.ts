@@ -43,7 +43,7 @@ type WaveformSession = {
   preset?: 'all' | 'essentials' | 'clocks-resets' | 'selected';
   projectRoot?: string;
 };
-type OpenBenchSession = {
+type RTLDeckSession = {
   version: number;
   projectRoot: string;
   openFiles: string[];
@@ -75,7 +75,7 @@ type RtlEvent =
   | { type: 'output'; stream: 'stdout' | 'stderr' | 'translation'; text: string }
   | { type: 'finish'; code: number; top?: string; moduleCount?: number };
 
-interface OpenBenchApi {
+interface RTLDeckApi {
   selectProjectFolder(): Promise<ProjectSelection | null>;
   activateProject(selection: {
     root: string;
@@ -102,8 +102,8 @@ interface OpenBenchApi {
   readFile(path: string): Promise<{ path: string; content: string }>;
   readProjectSources(): Promise<Array<{ path: string; content: string }>>;
   writeFile(path: string, content: string): Promise<{ path: string; saved: boolean }>;
-  loadSession(): Promise<OpenBenchSession>;
-  saveSession(value: Partial<OpenBenchSession>): Promise<OpenBenchSession>;
+  loadSession(): Promise<RTLDeckSession>;
+  saveSession(value: Partial<RTLDeckSession>): Promise<RTLDeckSession>;
   loadRecoveryDraft(
     path: string,
   ): Promise<{ path: string; content: string; updatedAt: string } | null>;
@@ -164,7 +164,9 @@ interface OpenBenchApi {
 }
 
 interface Window {
-  openbench: OpenBenchApi;
-  /** @deprecated Compatibility alias for extensions created before the OpenBench rename. */
-  rtlbench: OpenBenchApi;
+  rtldeck: RTLDeckApi;
+  /** @deprecated Compatibility alias for extensions created before the RTLDeck rename. */
+  openbench: RTLDeckApi;
+  /** @deprecated Compatibility alias for extensions created before the RTLDeck rename. */
+  rtlbench: RTLDeckApi;
 }

@@ -13,16 +13,18 @@ coverage/
 
 # Native OSS CAD Suite downloads and staged bundles
 .toolchain/
+app/.rtldeck-toolchain/
 app/.openbench-toolchain/
 app/.rtlbench-toolchain/
 
 # Runtime and visual-validation state
 **/.rtlbench-runs/
 **/.openbench-runs/
+**/.rtldeck-runs/
 app/.electron-validation/
 app/tmp/
 app/phase*.png
-examples/phase0/results/rtlbench_smoke_sim*
+examples/phase0/results/rtldeck_smoke_sim*
 *.log
 
 # Local configuration and secrets

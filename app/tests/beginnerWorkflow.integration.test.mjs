@@ -16,7 +16,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
 
 test('beginner FSM goes from design-only Yosys metadata to generated testbench and real VCD', async () => {
-  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtlbench-beginner-'));
+  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-beginner-'));
   try {
     await fsp.copyFile(
       path.resolve(here, '..', '..', 'examples', 'fixtures', 'beginner-fsm', 'traffic_light.sv'),
@@ -48,7 +48,7 @@ test('beginner FSM goes from design-only Yosys metadata to generated testbench a
 });
 
 test('a real beginner syntax error receives a clickable plain-language translation', async () => {
-  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtlbench-beginner-error-'));
+  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-beginner-error-'));
   try {
     await fsp.writeFile(
       path.join(projectRoot, 'broken.sv'),
@@ -78,7 +78,7 @@ test('a real beginner syntax error receives a clickable plain-language translati
 });
 
 test('a real unsupported coverage construct is identified at the source line', async () => {
-  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtlbench-beginner-unsupported-'));
+  const projectRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-beginner-unsupported-'));
   try {
     await fsp.copyFile(
       path.resolve(

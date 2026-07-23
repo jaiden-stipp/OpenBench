@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import AppMenu from '../AppMenu';
 import RunToolbar from './RunToolbar';
-import openBenchLogo from '../assets/openbench-logo.png';
+import ThemeLogo from './ThemeLogo';
 import type { ActiveView, OpenFile, Theme } from '../types/ui';
 
 type AppHeaderProps = {
@@ -41,9 +41,9 @@ export default function AppHeader(props: AppHeaderProps) {
     <header className="topbar">
       <div className="brand">
         <span className="brand-mark">
-          <img className="theme-logo" src={openBenchLogo} alt="" />
+          <ThemeLogo />
         </span>
-        <span>OpenBench</span>
+        <span>RTLDeck</span>
         <small>PREVIEW</small>
       </div>
       <AppMenu

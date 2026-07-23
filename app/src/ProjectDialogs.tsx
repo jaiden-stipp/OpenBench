@@ -50,7 +50,7 @@ export function ImportProjectDialog({
         <ImportDialogHeader existing={selection.existingProject} onCancel={onCancel} />
         <p>
           {selection.existingProject
-            ? 'OpenBench found project settings in this folder. Confirm the active modules before opening it.'
+            ? 'RTLDeck found project settings in this folder. Confirm the active modules before opening it.'
             : 'Choose the HDL files to include, then confirm the design module used for RTL analysis.'}
         </p>
         <ImportTopSelectors
@@ -411,8 +411,8 @@ export function StimulusDialog({
           </button>
         </div>
         <p>
-          Describe a simple timeline. OpenBench converts it into ordinary editable
-          SystemVerilog—there is no proprietary stimulus format.
+          Describe a simple timeline. RTLDeck converts it into ordinary editable SystemVerilog—there
+          is no proprietary stimulus format.
         </p>
         <StimulusTiming
           settings={{ clockPeriod, resetDuration, finishTime }}

@@ -10,7 +10,7 @@ if (platform === 'linux') {
   if (!process.env.LINUX_GPG_PRIVATE_KEY || !process.env.LINUX_GPG_PASSPHRASE) {
     fail(
       [
-        'Refusing to create an unsigned OpenBench Linux release.',
+        'Refusing to create an unsigned RTLDeck Linux release.',
         'Set LINUX_GPG_PRIVATE_KEY to an armored private key and LINUX_GPG_PASSPHRASE',
         'to its passphrase. For local testing, use pnpm package:linux:unsigned:dir.',
       ].join('\n'),

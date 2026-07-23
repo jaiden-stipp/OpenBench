@@ -17,14 +17,14 @@ type EntryActionOptions = {
 export function useProjectEntryActions(options: EntryActionOptions) {
   const { setProject } = options;
   const refreshProject = useCallback(async () => {
-    const next = await window.openbench.refreshProject();
+    const next = await window.rtldeck.refreshProject();
     setProject(next);
     return next;
   }, [setProject]);
 
   const addProjectFiles = async () => {
     try {
-      const added = await window.openbench.addProjectFiles();
+      const added = await window.rtldeck.addProjectFiles();
       if (added.length) {
         await refreshProject();
         await options.openPath(added[0]);
@@ -37,7 +37,7 @@ export function useProjectEntryActions(options: EntryActionOptions) {
 
   const removeProjectEntry = async (node: ProjectNode) => {
     try {
-      if (await window.openbench.removeEntry(node.path)) {
+      if (await window.rtldeck.removeEntry(node.path)) {
         const remaining = options.openFiles.filter(
           (file) => file.path !== node.path && !file.path.startsWith(`${node.path}/`),
         );
@@ -58,7 +58,7 @@ export function useProjectEntryActions(options: EntryActionOptions) {
 
   const duplicateProjectFile = async (node: ProjectNode) => {
     try {
-      const copy = await window.openbench.duplicateFile(node.path);
+      const copy = await window.rtldeck.duplicateFile(node.path);
       await refreshProject();
       options.setContextMenu(null);
       await options.openPath(copy);
@@ -98,7 +98,7 @@ export function useProjectPromptActions(options: PromptActionOptions) {
 async function createFile(value: string, options: PromptActionOptions) {
   const base = options.prompt?.node?.kind === 'directory' ? options.prompt.node.path : '';
   const path = base ? `${base}/${value}` : value;
-  const created = await window.openbench.createFile(path, `// ${value}\n`);
+  const created = await window.rtldeck.createFile(path, `// ${value}\n`);
   options.setPrompt(null);
   await options.refreshProject();
   await options.openPath(created);
@@ -107,7 +107,7 @@ async function createFile(value: string, options: PromptActionOptions) {
 async function createFolder(value: string, options: PromptActionOptions) {
   const base = options.prompt?.node?.kind === 'directory' ? options.prompt.node.path : '';
   const path = base ? `${base}/${value}` : value;
-  const created = await window.openbench.createFolder(path);
+  const created = await window.rtldeck.createFolder(path);
   options.setPrompt(null);
   await options.refreshProject();
   options.setStatus(`Created folder ${created}`);
@@ -115,7 +115,7 @@ async function createFolder(value: string, options: PromptActionOptions) {
 
 async function renameEntry(value: string, options: PromptActionOptions) {
   const oldPath = options.prompt!.node!.path;
-  const renamed = await window.openbench.renameEntry(oldPath, value);
+  const renamed = await window.rtldeck.renameEntry(oldPath, value);
   options.setPrompt(null);
   await options.refreshProject();
   options.setOpenFiles((current) =>
@@ -140,8 +140,8 @@ export function useFileTabActions(
 ) {
   const closeFileTab = async (file: OpenFile) => {
     if (file.content !== file.savedContent) {
-      await window.openbench.writeFile(file.path, file.content);
-      await window.openbench.clearRecoveryDraft(file.path);
+      await window.rtldeck.writeFile(file.path, file.content);
+      await window.rtldeck.clearRecoveryDraft(file.path);
     }
     const remaining = openFiles.filter((item) => item.path !== file.path);
     setOpenFiles(remaining);

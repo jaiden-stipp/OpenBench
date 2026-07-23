@@ -1,4 +1,4 @@
-name: Native OpenBench packages
+name: Native RTLDeck packages
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 env:
   # Keep this pinned so release builds are reproducible. Windows is distributed
   # as a self-extracting archive; Linux and macOS use tarballs.
-  OSS_CAD_TAG: 2026-05-12
+  OSS_CAD_TAG: 2026-07-15
 
 jobs:
   package:
@@ -23,17 +23,17 @@ jobs:
             suite: windows-x64
             signed_package_args: --win nsis --x64 --config.forceCodeSigning=true
             unsigned_package_args: --win nsis --x64 --config.forceCodeSigning=false
-            artifact: OpenBench-Windows-x64
+            artifact: RTLDeck-Windows-x64
           - os: ubuntu-22.04
             suite: linux-x64
             signed_package_args: --linux deb tar.gz
             unsigned_package_args: --linux deb tar.gz
-            artifact: OpenBench-Linux-x64
+            artifact: RTLDeck-Linux-x64
           - os: macos-14
             suite: darwin-arm64
             signed_package_args: --mac dmg zip --arm64 --config.forceCodeSigning=true
             unsigned_package_args: --mac dmg zip --arm64 --config.mac.identity=null --config.mac.hardenedRuntime=false --config.mac.notarize=false
-            artifact: OpenBench-macOS-arm64
+            artifact: RTLDeck-macOS-arm64
     runs-on: ${{ matrix.os }}
     env:
       WIN_CSC_LINK: ${{ matrix.os == 'windows-2022' && secrets.WINDOWS_CSC_LINK || '' }}
@@ -46,7 +46,7 @@ jobs:
       APPLE_ID: ${{ matrix.os == 'macos-14' && secrets.APPLE_ID || '' }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.os == 'macos-14' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
       APPLE_TEAM_ID: ${{ matrix.os == 'macos-14' && secrets.APPLE_TEAM_ID || '' }}
-      OPENBENCH_SIGNING_READY: ${{ (matrix.os == 'windows-2022' && secrets.WINDOWS_CSC_LINK != '' && secrets.WINDOWS_CSC_KEY_PASSWORD != '') || (matrix.os == 'ubuntu-22.04' && secrets.LINUX_GPG_PRIVATE_KEY != '' && secrets.LINUX_GPG_PASSPHRASE != '') || (matrix.os == 'macos-14' && secrets.MACOS_CSC_LINK != '' && secrets.MACOS_CSC_KEY_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') }}
+      RTLDECK_SIGNING_READY: ${{ (matrix.os == 'windows-2022' && secrets.WINDOWS_CSC_LINK != '' && secrets.WINDOWS_CSC_KEY_PASSWORD != '') || (matrix.os == 'ubuntu-22.04' && secrets.LINUX_GPG_PRIVATE_KEY != '' && secrets.LINUX_GPG_PASSPHRASE != '') || (matrix.os == 'macos-14' && secrets.MACOS_CSC_LINK != '' && secrets.MACOS_CSC_KEY_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') }}
     defaults:
       run:
         working-directory: app
@@ -85,26 +85,32 @@ jobs:
       - run: pnpm build
       - name: Stage bundled native backends
         env:
-          OPENBENCH_TOOLCHAIN_SOURCE: ${{ github.workspace }}/.toolchain/oss-cad-suite
+          RTLDECK_TOOLCHAIN_SOURCE: ${{ github.workspace }}/.toolchain/oss-cad-suite
         run: pnpm toolchain:stage
       - name: Require Authenticode credentials for Windows
-        if: runner.os == 'Windows' && env.OPENBENCH_SIGNING_READY == 'true'
+        if: runner.os == 'Windows' && env.RTLDECK_SIGNING_READY == 'true'
         run: node scripts/require-windows-signing.cjs
       - name: Require Linux release-signing credentials
-        if: runner.os == 'Linux' && env.OPENBENCH_SIGNING_READY == 'true'
+        if: runner.os == 'Linux' && env.RTLDECK_SIGNING_READY == 'true'
         run: node scripts/require-release-signing.cjs linux
       - name: Require macOS signing and notarization credentials
-        if: runner.os == 'macOS' && env.OPENBENCH_SIGNING_READY == 'true'
+        if: runner.os == 'macOS' && env.RTLDECK_SIGNING_READY == 'true'
         run: node scripts/require-release-signing.cjs mac
       - name: Report unsigned preview build
-        if: env.OPENBENCH_SIGNING_READY != 'true'
+        if: env.RTLDECK_SIGNING_READY != 'true'
         run: echo "::warning::Signing credentials are not configured; producing an explicitly unsigned preview artifact."
+      - name: Refuse unsigned tagged releases
+        if: startsWith(github.ref, 'refs/tags/') && env.RTLDECK_SIGNING_READY != 'true'
+        shell: bash
+        run: |
+          echo "::error::Tagged releases require signing credentials for every platform."
+          exit 1
       - name: Run native real-backend regression
         run: pnpm test
       - name: Build unpacked native app
         shell: bash
         run: |
-          if [[ "${OPENBENCH_SIGNING_READY}" == "true" ]]; then
+          if [[ "${RTLDECK_SIGNING_READY}" == "true" ]]; then
             pnpm exec electron-builder ${{ matrix.signed_package_args }} --dir --publish never
           else
             pnpm exec electron-builder ${{ matrix.unsigned_package_args }} --dir --publish never
@@ -112,7 +118,7 @@ jobs:
       - name: Build distributable artifacts
         shell: bash
         run: |
-          if [[ "${OPENBENCH_SIGNING_READY}" == "true" ]]; then
+          if [[ "${RTLDECK_SIGNING_READY}" == "true" ]]; then
             pnpm exec electron-builder ${{ matrix.signed_package_args }} --publish never
           else
             pnpm exec electron-builder ${{ matrix.unsigned_package_args }} --publish never
@@ -125,12 +131,12 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         env:
-          OPENBENCH_TEST_PROJECT: ${{ github.workspace }}/examples/phase0
-          OPENBENCH_TEST_ACTION: simulation
+          RTLDECK_TEST_PROJECT: ${{ github.workspace }}/examples/phase0
+          RTLDECK_TEST_ACTION: simulation
         run: |
-          installed_app="$(command -v openbench || true)"
+          installed_app="$(command -v rtldeck || true)"
           if [[ -z "$installed_app" ]]; then
-            installed_app="/opt/OpenBench/openbench"
+            installed_app="/opt/RTLDeck/rtldeck"
           fi
           test -x "$installed_app"
           set +e
@@ -143,7 +149,7 @@ jobs:
       - name: Verify installed Debian package waveform output
         if: runner.os == 'Linux'
         shell: bash
-        run: find "${{ github.workspace }}/examples/phase0/.openbench-runs" -name '*.vcd' -type f -print -quit | grep -q .
+        run: find "${{ github.workspace }}/examples/phase0/.rtldeck-runs" -name '*.vcd' -type f -print -quit | grep -q .
       - name: Verify Windows release and scan with Defender
         if: runner.os == 'Windows'
         run: node scripts/verify-windows-release.cjs

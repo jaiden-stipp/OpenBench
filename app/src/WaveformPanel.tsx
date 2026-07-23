@@ -45,7 +45,7 @@ export default function WaveformPanel(props: Props) {
   const actions = useWaveformActions(props.data, controls, derived);
   if (!props.data) return <EmptyWaveform runs={runs} onLoadRun={props.onLoadRun} />;
   return (
-    <div className="waveform-panel">
+    <div className={`waveform-panel ${controls.advancedTools ? 'with-advanced-tools' : ''}`}>
       <WaveformToolbar
         data={props.data}
         name={props.name}
@@ -430,8 +430,14 @@ function useViewportInput(data: VcdData | null, controls: Controls) {
       );
       controls.setViewport({ start, end: start + nextSpan });
     };
+    window.addEventListener('rtldeck:wave-zoom', onZoom);
+    window.addEventListener('openbench:wave-zoom', onZoom);
     window.addEventListener('rtlbench:wave-zoom', onZoom);
-    return () => window.removeEventListener('rtlbench:wave-zoom', onZoom);
+    return () => {
+      window.removeEventListener('rtldeck:wave-zoom', onZoom);
+      window.removeEventListener('openbench:wave-zoom', onZoom);
+      window.removeEventListener('rtlbench:wave-zoom', onZoom);
+    };
   }, [controls.setViewport, controls.viewport, data]);
 }
 

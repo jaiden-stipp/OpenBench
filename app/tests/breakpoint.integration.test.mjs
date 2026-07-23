@@ -28,16 +28,16 @@ test('Icarus evaluates a compiled waveform condition inside the real simulation'
   const result = await runIcarusSimulation({
     projectRoot,
     suiteRoot,
-    files: ['rtlbench_smoke.sv', 'rtlbench_smoke_tb.sv'],
-    breakpoints: [{ signalPath: 'rtlbench_smoke_tb.dut.total [3:0]', width: 4, value: '3' }],
+    files: ['rtldeck_smoke.sv', 'rtldeck_smoke_tb.sv'],
+    breakpoints: [{ signalPath: 'rtldeck_smoke_tb.dut.total [3:0]', width: 4, value: '3' }],
     onOutput: (_stream, text) => {
       output += text;
     },
   }).catch((error) => {
     throw new Error(`${error.message}\n${output}`);
   });
-  assert.match(output, /\[RTLBENCH_BREAKPOINT\].*total == 3/);
-  assert.equal(result.breakpointHit.condition, 'rtlbench_smoke_tb.dut.total == 3');
+  assert.match(output, /\[RTLDECK_BREAKPOINT\].*total == 3/);
+  assert.equal(result.breakpointHit.condition, 'rtldeck_smoke_tb.dut.total == 3');
   assert.ok(result.breakpointHit.time < 42000);
   const vcd = parseVcd(await fsp.readFile(result.vcdPath, 'utf8'));
   assert.ok(

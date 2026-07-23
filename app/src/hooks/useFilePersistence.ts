@@ -22,7 +22,7 @@ export function useInlineLint(options: InlineLintOptions) {
       const request = ++lintRequestRef.current;
       setLintStatus('checking');
       try {
-        const result = await window.openbench.runInlineLint();
+        const result = await window.rtldeck.runInlineLint();
         if (request !== lintRequestRef.current) return;
         if (result.skipped) {
           setLintStatus('idle');
@@ -35,7 +35,7 @@ export function useInlineLint(options: InlineLintOptions) {
           .find((item: import('monaco-editor').editor.ITextModel) =>
             normalizePath(item.uri.path.replace(/^\//, '')).endsWith(normalizedPath),
           );
-        if (model) localMonaco.editor.setModelMarkers(model, 'openbench-inline-lint', diagnostics);
+        if (model) localMonaco.editor.setModelMarkers(model, 'rtldeck-inline-lint', diagnostics);
         setLintStatus(diagnostics.length || result.code !== 0 ? 'issues' : 'clean');
       } catch {
         if (request === lintRequestRef.current) {
@@ -50,7 +50,7 @@ export function useInlineLint(options: InlineLintOptions) {
 
 export function clearInlineLintMarkers() {
   for (const model of localMonaco.editor.getModels())
-    localMonaco.editor.setModelMarkers(model, 'openbench-inline-lint', []);
+    localMonaco.editor.setModelMarkers(model, 'rtldeck-inline-lint', []);
 }
 
 function collectDiagnostics(output: string, normalizedPath: string) {
@@ -129,8 +129,8 @@ export function useFilePersistence(options: FileSaveOptions) {
   const saveAllDirtyFiles = useCallback(async () => {
     try {
       const result = await persistDirtyFiles(openFiles, async (file) => {
-        await window.openbench.writeFile(file.path, file.content);
-        await window.openbench.clearRecoveryDraft(file.path);
+        await window.rtldeck.writeFile(file.path, file.content);
+        await window.rtldeck.clearRecoveryDraft(file.path);
       });
       if (result.successful.length)
         setOpenFiles((current) => markSnapshotsSaved(current, result.successful));
@@ -170,9 +170,9 @@ type CurrentFileSaveOptions = Pick<
 async function saveCurrentFile(options: CurrentFileSaveOptions, triggerWatch: boolean) {
   if (!options.openFile) return;
   try {
-    await window.openbench.writeFile(options.openFile.path, options.openFile.content);
+    await window.rtldeck.writeFile(options.openFile.path, options.openFile.content);
     options.updateOpenFile((file) => ({ ...file, savedContent: file.content }));
-    await window.openbench.clearRecoveryDraft(options.openFile.path);
+    await window.rtldeck.clearRecoveryDraft(options.openFile.path);
     if (triggerWatch && options.watchMode && options.hasRunSimulation) {
       if (options.watchTimerRef.current) clearTimeout(options.watchTimerRef.current);
       options.watchTimerRef.current = setTimeout(() => void options.watchRunRef.current?.(), 450);
@@ -194,7 +194,7 @@ function useAutosave(options: AutosaveOptions) {
     const file = openFile;
     if (!project || !file || file.content === file.savedContent) return;
     const recoveryTimer = setTimeout(
-      () => void window.openbench.saveRecoveryDraft(file.path, file.content),
+      () => void window.rtldeck.saveRecoveryDraft(file.path, file.content),
       120,
     );
     const autosaveTimer = setTimeout(
@@ -212,7 +212,7 @@ type AutosaveFileOptions = Pick<FileSaveOptions, 'runInlineLint' | 'setOpenFiles
 
 async function autosaveFile(file: OpenFile, options: AutosaveFileOptions) {
   try {
-    await window.openbench.writeFile(file.path, file.content);
+    await window.rtldeck.writeFile(file.path, file.content);
     options.setOpenFiles((current) =>
       current.map((item) =>
         item.path === file.path && item.content === file.content
@@ -220,7 +220,7 @@ async function autosaveFile(file: OpenFile, options: AutosaveFileOptions) {
           : item,
       ),
     );
-    await window.openbench.clearRecoveryDraft(file.path);
+    await window.rtldeck.clearRecoveryDraft(file.path);
     options.setStatus(`Autosaved ${file.path}`);
     await options.runInlineLint(file.path);
   } catch (error) {

@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const { orderSourceFiles } = require('../electron/sourceOrder.cjs');
 
 test('package providers precede SystemVerilog files that import them', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-source-order-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-source-order-'));
   try {
     await fsp.writeFile(path.join(root, 'alu.sv'), 'import cpu_pkg::*; module alu; endmodule');
     await fsp.writeFile(path.join(root, 'cpu_pkg.sv'), 'package cpu_pkg; endpackage');
@@ -25,7 +25,7 @@ test('package providers precede SystemVerilog files that import them', async () 
 });
 
 test('package providers precede direct scoped type and value references', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-source-scoped-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-source-scoped-'));
   try {
     await fsp.writeFile(
       path.join(root, 'alu.sv'),
@@ -45,7 +45,7 @@ test('package providers precede direct scoped type and value references', async 
 });
 
 test('reports every duplicate package provider', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-source-duplicate-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-source-duplicate-'));
   try {
     await fsp.writeFile(path.join(root, 'first.sv'), 'package shared_pkg; endpackage');
     await fsp.writeFile(path.join(root, 'second.sv'), 'package shared_pkg; endpackage');
@@ -59,7 +59,7 @@ test('reports every duplicate package provider', async () => {
 });
 
 test('comments and strings do not create package dependencies', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-source-comments-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-source-comments-'));
   try {
     await fsp.writeFile(
       path.join(root, 'first.sv'),
@@ -79,7 +79,7 @@ test('comments and strings do not create package dependencies', async () => {
 });
 
 test('reports package dependency cycles instead of silently changing order', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-source-cycle-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-source-cycle-'));
   try {
     await fsp.writeFile(path.join(root, 'a.sv'), 'package a; import b::*; endpackage');
     await fsp.writeFile(path.join(root, 'b.sv'), 'package b; import a::*; endpackage');

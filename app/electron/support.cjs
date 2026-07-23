@@ -5,7 +5,7 @@ const { runIcarusSimulation } = require('./simulator.cjs');
 const { runYosysElaboration } = require('./yosys.cjs');
 
 async function runBackendSelfTest(suiteRoot) {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-health-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-health-'));
   const started = Date.now();
   try {
     const design = `module health_counter(input logic clk, input logic rst_n, output logic q); always_ff @(posedge clk or negedge rst_n) if (!rst_n) q <= 1'b0; else q <= ~q; endmodule\n`;
@@ -54,9 +54,9 @@ async function createSupportBundle({
   includeSource = false,
 }) {
   const bundle = {
-    format: 'openbench-support-v1',
+    format: 'rtldeck-support-v1',
     createdAt: new Date().toISOString(),
-    openBench: {
+    rtlDeck: {
       version: appVersion,
       platform: process.platform,
       architecture: process.arch,

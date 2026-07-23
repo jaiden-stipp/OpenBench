@@ -60,15 +60,15 @@ button {
   height: 100%;
   object-fit: contain;
 }
-.logo-filter-defs {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
+.theme-logo-pair {
+  display: contents;
 }
-.dark .theme-logo {
-  filter: url('#openbench-logo-dark');
+.theme-logo-pair .theme-logo-dark,
+.dark .theme-logo-pair .theme-logo-light {
+  display: none;
+}
+.dark .theme-logo-pair .theme-logo-dark {
+  display: block;
 }
 .brand small {
   padding: 2px 5px;
@@ -592,6 +592,21 @@ body.resizing * {
     Consolas,
     monospace;
 }
+.console-outcome {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding: 6px 10px;
+  color: #b8f2df;
+  border-bottom: 1px solid #2f6f60;
+  background: #123028;
+  font-weight: 700;
+}
+.console-outcome.failed {
+  color: #ffd4d4;
+  border-color: #7a3d43;
+  background: #351c22;
+}
 .panel-title > div {
   display: flex;
   gap: 6px;
@@ -736,8 +751,11 @@ footer .bad {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 38px 34px 34px minmax(0, 1fr);
+  grid-template-rows: 38px minmax(0, 1fr);
   background: #0a0f15;
+}
+.waveform-panel.with-advanced-tools {
+  grid-template-rows: 38px 34px 34px minmax(0, 1fr);
 }
 .wave-toolbar,
 .group-toolbar,
@@ -1104,6 +1122,22 @@ footer .bad {
   cursor: pointer;
   font-size: 10px;
 }
+.schematic-view-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid #33465c;
+  border-radius: 5px;
+  background: #0d1621;
+}
+.schematic-view-toggle button {
+  padding: 3px 7px;
+  border: 0;
+  background: transparent;
+}
+.schematic-view-toggle button.active {
+  color: #07120f;
+  background: #54d6b6;
+}
 .schematic-legend {
   display: flex;
   align-items: center;
@@ -1155,6 +1189,11 @@ footer .bad {
 }
 .legend-icon.module {
   border-color: #9b80c0;
+  background: #2c2340;
+}
+.legend-icon.group {
+  color: #e7d8fa;
+  border-color: #8663aa;
   background: #2c2340;
 }
 .legend-icon.port {
@@ -1238,7 +1277,8 @@ footer .bad {
   fill: #14302d;
   stroke: #43a089;
 }
-.schematic-node.symbol-module .block-surface {
+.schematic-node.symbol-module .block-surface,
+.schematic-node.symbol-group .block-surface {
   fill: #231b35;
   stroke: #9b80c0;
   stroke-width: 2.6;
@@ -1291,7 +1331,8 @@ footer .bad {
 .schematic-node.symbol-compare .node-name {
   font-size: 8px;
 }
-.schematic-node.symbol-module .node-name {
+.schematic-node.symbol-module .node-name,
+.schematic-node.symbol-group .node-name {
   fill: #f4eaff;
   font-size: 10px;
 }
@@ -1361,7 +1402,8 @@ footer .bad {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.selected-node-summary.module {
+.selected-node-summary.module,
+.selected-node-summary.group {
   color: #e7d8fa;
   border-color: #765f9a;
   background: #241c36;
@@ -1434,7 +1476,7 @@ footer .bad {
   box-shadow: 0 22px 70px rgb(0 0 0 / 0.48);
 }
 .project-dialog {
-  width: min(680px, 100%);
+  width: min(760px, 100%);
   max-height: min(720px, calc(100vh - 48px));
   display: flex;
   flex-direction: column;
@@ -1445,6 +1487,29 @@ footer .bad {
   border-radius: 10px;
   background: #111a25;
   box-shadow: 0 22px 70px rgb(0 0 0 / 0.48);
+}
+.import-top-selection label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: #cbd7e5;
+  font-size: 11px;
+  font-weight: 700;
+}
+.import-top-selection select {
+  min-width: 0;
+  width: 100%;
+  padding: 8px 9px;
+  color: #dce6f2;
+  border: 1px solid #384b63;
+  border-radius: 5px;
+  background: #0b121b;
+}
+.import-top-selection small {
+  color: #8297ae;
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.35;
 }
 .project-dialog.compact {
   width: min(570px, 100%);
@@ -1476,7 +1541,7 @@ footer .bad {
   width: 210px;
 }
 .dark .onboarding-visual img {
-  filter: url('#openbench-logo-dark') drop-shadow(0 10px 24px rgb(0 0 0 / 0.35));
+  filter: drop-shadow(0 10px 24px rgb(0 0 0 / 0.35));
 }
 .light .onboarding-visual img {
   filter: drop-shadow(0 10px 24px rgb(0 0 0 / 0.18));
@@ -2666,15 +2731,30 @@ footer .bad {
   fill: #e0f4ee;
   stroke: #3c8d78;
 }
-.light .schematic-node.symbol-module .block-surface {
+.light .schematic-node.symbol-module .block-surface,
+.light .schematic-node.symbol-group .block-surface {
   fill: #f3edfa;
   stroke: #8663aa;
+}
+.light .schematic-view-toggle {
+  border-color: #aebdcd;
+  background: #dce5ee;
+}
+.light .schematic-view-toggle button.active {
+  color: #0c2d25;
+  background: #69d9bd;
 }
 .light .schematic-node .node-name {
   fill: #21364d;
 }
 .light .schematic-node .node-type {
   fill: #607991;
+}
+.light .schematic-node .port-name {
+  fill: #173d34;
+}
+.light .schematic-node .port-direction {
+  fill: #286d5c;
 }
 .light .schematic-node .node-name,
 .light .schematic-node .node-type,
@@ -2683,6 +2763,26 @@ footer .bad {
 }
 .light .node-pin text {
   fill: #304b65;
+}
+.light .run-targets {
+  color: #4f657b;
+  border-color: #b8c4d0;
+}
+.light .run-targets strong {
+  color: #1f354b;
+}
+.light .run-targets small {
+  color: #526b82;
+}
+.light .editor-empty h1,
+.light .schematic-empty h1,
+.light .wave-empty h1 {
+  color: #1d344a;
+}
+.light .editor-empty p,
+.light .schematic-empty p,
+.light .wave-empty p {
+  color: #526a81;
 }
 .light .schematic-edge path {
   stroke: #71869c;
@@ -2726,6 +2826,17 @@ footer .bad {
   color: #24394f;
   border-color: #aebdcd;
   background: #fff;
+}
+.light .import-top-selection label {
+  color: #31475e;
+}
+.light .import-top-selection select {
+  color: #23384e;
+  border-color: #aab9c9;
+  background: #fff;
+}
+.light .import-top-selection small {
+  color: #5e748a;
 }
 .light .settings-dialog label {
   color: #31475e;

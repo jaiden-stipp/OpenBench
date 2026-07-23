@@ -8,6 +8,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   simulator: 'iverilog',
   toolchainPath: '',
 });
+const SETTINGS_NAME = '.rtldeck-settings.json';
+const LEGACY_SETTINGS_NAMES = ['.rtlbench.json'];
 
 function normalizeSettings(value = {}) {
   return {
@@ -24,23 +26,32 @@ function normalizeSettings(value = {}) {
 }
 
 async function loadProjectSettings(projectRoot) {
-  try {
-    const value = JSON.parse(await fsp.readFile(path.join(projectRoot, '.rtlbench.json'), 'utf8'));
-    return normalizeSettings(value);
-  } catch (error) {
-    if (error.code === 'ENOENT') return { ...DEFAULT_SETTINGS };
-    throw new Error(`Unable to read .rtlbench.json: ${error.message}`);
+  for (const settingsName of [SETTINGS_NAME, ...LEGACY_SETTINGS_NAMES]) {
+    try {
+      const value = JSON.parse(await fsp.readFile(path.join(projectRoot, settingsName), 'utf8'));
+      return normalizeSettings(value);
+    } catch (error) {
+      if (error.code !== 'ENOENT')
+        throw new Error(`Unable to read ${settingsName}: ${error.message}`);
+    }
   }
+  return { ...DEFAULT_SETTINGS };
 }
 
 async function saveProjectSettings(projectRoot, value) {
   const settings = normalizeSettings(value);
   await fsp.writeFile(
-    path.join(projectRoot, '.rtlbench.json'),
+    path.join(projectRoot, SETTINGS_NAME),
     `${JSON.stringify(settings, null, 2)}\n`,
     'utf8',
   );
   return settings;
 }
 
-module.exports = { DEFAULT_SETTINGS, loadProjectSettings, normalizeSettings, saveProjectSettings };
+module.exports = {
+  DEFAULT_SETTINGS,
+  SETTINGS_NAME,
+  loadProjectSettings,
+  normalizeSettings,
+  saveProjectSettings,
+};

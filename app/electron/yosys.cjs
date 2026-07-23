@@ -57,7 +57,7 @@ async function runYosysElaboration({
   const mount = await mountSuite(suiteRoot);
   try {
     const runId = `yosys-${new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-')}`;
-    const runDirectory = path.join(projectRoot, '.openbench-runs', runId);
+    const runDirectory = path.join(projectRoot, '.rtldeck-runs', runId);
     await fsp.mkdir(runDirectory, { recursive: true });
     const jsonPath = path.join(runDirectory, 'netlist.json');
     const scriptPath = path.join(runDirectory, 'elaborate.ys');

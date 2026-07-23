@@ -185,7 +185,7 @@ function BreakpointEditor(props: Props & { view: VisibleSignal; breakpoint?: Wav
       )}
       <button onClick={() => props.setEditingBreakpoint(null)}>Cancel</button>
       <small>
-        This becomes a real simulator monitor; OpenBench does not poll or repeatedly rerun.
+        This becomes a real simulator monitor; RTLDeck does not poll or repeatedly rerun.
       </small>
     </div>
   );

@@ -22,7 +22,7 @@ function findReleaseExecutables() {
     .readdirSync(releaseRoot)
     .filter((name) => name.endsWith('.exe'))
     .map((name) => path.join(releaseRoot, name));
-  const unpackedApp = path.join(releaseRoot, 'win-unpacked', 'OpenBench.exe');
+  const unpackedApp = path.join(releaseRoot, 'win-unpacked', 'RTLDeck.exe');
   if (fs.existsSync(unpackedApp)) installer.push(unpackedApp);
   return installer;
 }
@@ -67,7 +67,7 @@ if (!fs.existsSync(releaseRoot))
 
 const executables = findReleaseExecutables();
 if (executables.length < 2) {
-  throw new Error('Expected both the NSIS installer and unpacked OpenBench executable.');
+  throw new Error('Expected both the NSIS installer and unpacked RTLDeck executable.');
 }
 
 const signingReady = Boolean(

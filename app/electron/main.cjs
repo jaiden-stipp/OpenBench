@@ -34,23 +34,40 @@ const { orderSourceFiles } = require('./sourceOrder.cjs');
 const hdlStructure = import('../shared/hdlStructure.js');
 
 const HDL_EXTENSIONS = new Set(['.v', '.sv', '.vh', '.svh']);
-const TEST_PROJECT = process.env.OPENBENCH_TEST_PROJECT || process.env.RTLBENCH_TEST_PROJECT;
+const TEST_PROJECT =
+  process.env.RTLDECK_TEST_PROJECT ||
+  process.env.OPENBENCH_TEST_PROJECT ||
+  process.env.RTLBENCH_TEST_PROJECT;
 const TEST_ACTION =
-  process.env.OPENBENCH_TEST_ACTION || process.env.RTLBENCH_TEST_ACTION || 'simulation';
-const CAPTURE_PATH = process.env.OPENBENCH_CAPTURE_PATH || process.env.RTLBENCH_CAPTURE_PATH;
-const DEV_URL = process.env.OPENBENCH_DEV_URL || process.env.RTLBENCH_DEV_URL;
-const IVERILOG_OVERRIDE = process.env.OPENBENCH_IVERILOG || process.env.RTLBENCH_IVERILOG;
+  process.env.RTLDECK_TEST_ACTION ||
+  process.env.OPENBENCH_TEST_ACTION ||
+  process.env.RTLBENCH_TEST_ACTION ||
+  'simulation';
+const CAPTURE_PATH =
+  process.env.RTLDECK_CAPTURE_PATH ||
+  process.env.OPENBENCH_CAPTURE_PATH ||
+  process.env.RTLBENCH_CAPTURE_PATH;
+const DEV_URL =
+  process.env.RTLDECK_DEV_URL || process.env.OPENBENCH_DEV_URL || process.env.RTLBENCH_DEV_URL;
+const IVERILOG_OVERRIDE =
+  process.env.RTLDECK_IVERILOG || process.env.OPENBENCH_IVERILOG || process.env.RTLBENCH_IVERILOG;
 const initialProjectRoot = TEST_PROJECT ? path.resolve(TEST_PROJECT) : null;
 const workspaceRegistry = createWorkspaceRegistry(initialProjectRoot);
 const getWorkspace = (sender) => workspaceRegistry.forSender(sender);
 
 if (CAPTURE_PATH)
   app.setPath('userData', path.join(path.dirname(CAPTURE_PATH), '.electron-validation'));
-const sessionStore = createSessionStore(path.join(app.getPath('userData'), 'openbench-state'));
+const sessionStore = createSessionStore(path.join(app.getPath('userData'), 'rtldeck-state'), {
+  legacyDirectories: [
+    path.join(app.getPath('userData'), 'openbench-state'),
+    path.join(app.getPath('appData'), 'OpenBench', 'openbench-state'),
+    path.join(app.getPath('appData'), 'openbench', 'openbench-state'),
+  ],
+});
 
 function createWindow() {
   const win = new BrowserWindow({
-    title: 'OpenBench',
+    title: 'RTLDeck',
     width: 1440,
     height: 900,
     minWidth: 900,
@@ -87,12 +104,12 @@ function createWindow() {
             );
           } else if (testAction === 'newproject') {
             await win.webContents.executeJavaScript(`
-              window.dispatchEvent(new CustomEvent('openbench:show-new-project', { detail: 'C:\\\\Users\\\\Student\\\\Documents' }));
+              window.dispatchEvent(new CustomEvent('rtldeck:show-new-project', { detail: 'C:\\\\Users\\\\Student\\\\Documents' }));
               new Promise((resolve, reject) => { const started = Date.now(); const check = () => { if (document.querySelector('.project-dialog')) resolve(true); else if (Date.now() - started > 5000) reject(new Error('new project dialog unavailable')); else setTimeout(check, 100); }; check(); });
             `);
           } else if (testAction === 'import') {
             await win.webContents.executeJavaScript(`
-              window.dispatchEvent(new CustomEvent('openbench:show-import', { detail: { root: 'C:\\\\Users\\\\Student\\\\Documents\\\\traffic-light', name: 'traffic-light', candidates: ['rtl/traffic_light.sv', 'rtl/timer.sv', 'sim/traffic_light_tb.sv', 'notes/experimental.sv'], selected: ['rtl/traffic_light.sv', 'sim/traffic_light_tb.sv'] } }));
+              window.dispatchEvent(new CustomEvent('rtldeck:show-import', { detail: { root: 'C:\\\\Users\\\\Student\\\\Documents\\\\traffic-light', name: 'traffic-light', candidates: ['rtl/traffic_light.sv', 'rtl/timer.sv', 'sim/traffic_light_tb.sv', 'notes/experimental.sv'], selected: ['rtl/traffic_light.sv', 'sim/traffic_light_tb.sv'] } }));
               new Promise((resolve, reject) => { const started = Date.now(); const check = () => { if (document.querySelector('.project-file-picker')) resolve(true); else if (Date.now() - started > 5000) reject(new Error('import dialog unavailable')); else setTimeout(check, 100); }; check(); });
             `);
           } else if (testAction === 'menu') {
@@ -113,7 +130,7 @@ function createWindow() {
           } else if (testAction === 'concept') {
             await win.webContents.executeJavaScript(`
               const waitFor = (predicate, label, timeout = 12000) => new Promise((resolve, reject) => { const started = Date.now(); const check = () => { const value = predicate(); if (value) resolve(value); else if (Date.now() - started > timeout) reject(new Error(label)); else setTimeout(check, 100); }; check(); });
-              waitFor(() => [...document.querySelectorAll('.tree-file')].find((button) => button.textContent.includes('traffic_light.sv') && !button.textContent.includes('_tb')), 'source file unavailable').then((button) => button.click()).then(() => waitFor(() => document.querySelector('.monaco-editor'), 'source editor unavailable')).then(() => new Promise((resolve) => setTimeout(resolve, 500))).then(() => { window.dispatchEvent(new CustomEvent('rtlbench:show-concept', { detail: { line: 15, column: 8 } })); }).then(() => waitFor(() => document.querySelector('.source-concept-card'), 'concept card unavailable'));
+              waitFor(() => [...document.querySelectorAll('.tree-file')].find((button) => button.textContent.includes('traffic_light.sv') && !button.textContent.includes('_tb')), 'source file unavailable').then((button) => button.click()).then(() => waitFor(() => document.querySelector('.monaco-editor'), 'source editor unavailable')).then(() => new Promise((resolve) => setTimeout(resolve, 500))).then(() => { window.dispatchEvent(new CustomEvent('rtldeck:show-concept', { detail: { line: 15, column: 8 } })); }).then(() => waitFor(() => document.querySelector('.source-concept-card'), 'concept card unavailable'));
             `);
           } else if (testAction === 'xzhelp') {
             await win.webContents.executeJavaScript(`
@@ -143,10 +160,10 @@ function createWindow() {
                 .then(() => waitFor(() => document.querySelector('.waveform-panel canvas'), 'waveform unavailable'))
                 .then(() => { document.querySelector('[data-testid="watch-toggle"]').click(); [...document.querySelectorAll('.tree-file')].find((button) => button.textContent.includes('watch_counter.sv') && !button.textContent.includes('_tb'))?.click(); })
                 .then(() => waitFor(() => document.querySelector('.monaco-editor textarea'), 'source editor unavailable'))
-                .then((textarea) => { window.__rtlbenchBeforeWatch = document.querySelector('.console')?.textContent || ''; textarea.focus(); window.dispatchEvent(new CustomEvent('rtlbench:insert-editor-text', { detail: String.fromCharCode(10) + '// Saved by the OpenBench watch-mode validation.' })); })
+                .then((textarea) => { window.__rtldeckBeforeWatch = document.querySelector('.console')?.textContent || ''; textarea.focus(); window.dispatchEvent(new CustomEvent('rtldeck:insert-editor-text', { detail: String.fromCharCode(10) + '// Saved by the RTLDeck watch-mode validation.' })); })
                 .then(() => waitFor(() => { const button = document.querySelector('[data-testid="save-file"]'); return button && !button.disabled && button; }, 'save did not become available'))
                 .then((button) => button.click())
-                .then(() => waitFor(() => { const text = document.querySelector('.console')?.textContent || ''; return text !== window.__rtlbenchBeforeWatch && text.includes('Simulation finished with exit code 0'); }, 'watch rerun did not finish'))
+                .then(() => waitFor(() => { const text = document.querySelector('.console')?.textContent || ''; return text !== window.__rtldeckBeforeWatch && text.includes('Simulation finished with exit code 0'); }, 'watch rerun did not finish'))
                 .then(() => { [...document.querySelectorAll('.view-tabs button')].find((button) => button.textContent.startsWith('Waveform'))?.click(); return true; });
             `);
           } else if (testAction === 'settings') {
@@ -221,7 +238,7 @@ function createWindow() {
               waitFor(() => document.querySelector('.tree-file'), 'lint file unavailable')
                 .then((button) => button.click())
                 .then(() => waitFor(() => document.querySelector('.monaco-editor textarea'), 'lint editor unavailable'))
-                .then((textarea) => { textarea.focus(); window.dispatchEvent(new CustomEvent('rtlbench:insert-editor-text', { detail: String.fromCharCode(10) + 'this is not valid verilog' })); })
+                .then((textarea) => { textarea.focus(); window.dispatchEvent(new CustomEvent('rtldeck:insert-editor-text', { detail: String.fromCharCode(10) + 'this is not valid verilog' })); })
                 .then(() => waitFor(() => document.querySelector('.lint-state.issues'), 'inline lint did not report the edit'));
             `);
           } else if (testAction === 'session-setup') {
@@ -304,7 +321,7 @@ function createWindow() {
           await new Promise((resolve) => setTimeout(resolve, 750));
         }
       } catch (error) {
-        console.error('OpenBench validation hook:', error);
+        console.error('RTLDeck validation hook:', error);
       } finally {
         const image = await win.webContents.capturePage();
         await fsp.writeFile(CAPTURE_PATH, image.toPNG());
@@ -324,7 +341,7 @@ async function buildTree(directory, root = directory) {
     if (
       entry.name === '.git' ||
       entry.name === 'node_modules' ||
-      entry.name.startsWith('.openbench-') ||
+      entry.name.startsWith('.rtldeck-') ||
       entry.name.startsWith('.rtlbench-')
     )
       continue;
@@ -372,6 +389,7 @@ async function newestGeneratedFile(projectRoot, extension) {
       }
     }
   }
+  await walk(path.join(projectRoot, '.rtldeck-runs'));
   await walk(path.join(projectRoot, '.openbench-runs'));
   await walk(path.join(projectRoot, '.rtlbench-runs'));
   return newest?.path || null;
@@ -379,7 +397,7 @@ async function newestGeneratedFile(projectRoot, extension) {
 
 function translatedOutput(sender, channel, backend, projectRoot) {
   const translator = createErrorTranslator({ backend, projectRoot });
-  const unmatchedLog = path.join(projectRoot, '.openbench-runs', 'unmatched-errors.jsonl');
+  const unmatchedLog = path.join(projectRoot, '.rtldeck-runs', 'unmatched-errors.jsonl');
   const emitProcessed = (processed) => {
     for (const translation of processed.translations)
       sender.send(channel, {
@@ -399,7 +417,7 @@ function translatedOutput(sender, channel, backend, projectRoot) {
           ),
         )
         .catch((error) =>
-          console.warn('OpenBench could not append unmatched backend diagnostics', {
+          console.warn('RTLDeck could not append unmatched backend diagnostics', {
             projectRoot,
             message: error instanceof Error ? error.message : String(error),
           }),
@@ -470,7 +488,7 @@ function launchPreparedProcess(workspace, operation, launch) {
 ipcMain.handle('project:selectFolder', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
-    title: 'Add an HDL folder to OpenBench',
+    title: 'Add an HDL folder to RTLDeck',
   });
   if (result.canceled || !result.filePaths[0]) return null;
   const root = await fsp.realpath(result.filePaths[0]);
@@ -516,7 +534,7 @@ ipcMain.handle('project:activate', async (event, selection) => {
 ipcMain.handle('project:chooseNewParent', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory', 'createDirectory'],
-    title: 'Choose where to create the OpenBench project',
+    title: 'Choose where to create the RTLDeck project',
   });
   return result.canceled ? null : result.filePaths[0] || null;
 });
@@ -633,7 +651,7 @@ ipcMain.handle('file:remove', async (event, relativePath) => {
     title: 'Remove from project',
     message: `Move “${relativePath}” to the Recycle Bin?`,
     detail:
-      'This removes it from the OpenBench project manifest and moves the file or folder to the operating-system trash.',
+      'This removes it from the RTLDeck project manifest and moves the file or folder to the operating-system trash.',
     buttons: ['Cancel', 'Move to Recycle Bin'],
     defaultId: 0,
     cancelId: 0,
@@ -671,10 +689,10 @@ ipcMain.handle('feedback:composeEmail', async (_event, kind, backend) => {
   if (!['iverilog', 'verilator'].includes(backend))
     throw new Error('Unsupported simulator backend.');
   const isBug = kind === 'bug';
-  const subject = isBug ? 'OpenBench Bug Report' : 'OpenBench Feedback';
+  const subject = isBug ? 'RTLDeck Bug Report' : 'RTLDeck Feedback';
   const body = isBug
-    ? `Hi Jaiden,\n\nI found a problem in OpenBench.\n\nWhat I expected:\n\nWhat happened instead:\n\nSteps to reproduce:\n1. \n2. \n3. \n\nRaw console output (if relevant):\n\n\nOpenBench version: ${app.getVersion()}\nOperating system: ${process.platform} ${process.arch}\nSimulator backend: ${backend}\n\nPlease remember to remove private or course-restricted HDL before attaching files.`
-    : `Hi Jaiden,\n\nI have some feedback about OpenBench:\n\n\nWhat would make the app easier to use or learn:\n\n\nOpenBench version: ${app.getVersion()}\nOperating system: ${process.platform} ${process.arch}\nSimulator backend: ${backend}`;
+    ? `Hi Jaiden,\n\nI found a problem in RTLDeck.\n\nWhat I expected:\n\nWhat happened instead:\n\nSteps to reproduce:\n1. \n2. \n3. \n\nRaw console output (if relevant):\n\n\nRTLDeck version: ${app.getVersion()}\nOperating system: ${process.platform} ${process.arch}\nSimulator backend: ${backend}\n\nPlease remember to remove private or course-restricted HDL before attaching files.`
+    : `Hi Jaiden,\n\nI have some feedback about RTLDeck:\n\n\nWhat would make the app easier to use or learn:\n\n\nRTLDeck version: ${app.getVersion()}\nOperating system: ${process.platform} ${process.arch}\nSimulator backend: ${backend}`;
   const query = new URLSearchParams({ subject, body });
   await shell.openExternal(`mailto:jaidenstipp@gmail.com?${query.toString()}`);
 });
@@ -695,9 +713,9 @@ ipcMain.handle('support:exportBundle', async (event, options = {}) => {
   const settings = projectRoot ? await loadProjectSettings(projectRoot) : null;
   const owner = BrowserWindow.fromWebContents(event.sender);
   const result = await dialog.showSaveDialog(owner, {
-    title: 'Save OpenBench diagnostic bundle',
-    defaultPath: `openbench-support-${new Date().toISOString().slice(0, 10)}.json`,
-    filters: [{ name: 'OpenBench support bundle', extensions: ['json'] }],
+    title: 'Save RTLDeck diagnostic bundle',
+    defaultPath: `rtldeck-support-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: 'RTLDeck support bundle', extensions: ['json'] }],
   });
   if (result.canceled || !result.filePath) return null;
   const bundle = await createSupportBundle({
@@ -928,7 +946,7 @@ ipcMain.handle('testbench:generate', async (event, moduleName, options = {}) => 
   const projectRoot = workspace.captureProject();
   if (!workspace.latestNetlistPath)
     throw new Error(
-      'Run RTL Analysis before generating a testbench. OpenBench uses the real Yosys port metadata.',
+      'Run RTL Analysis before generating a testbench. RTLDeck uses the real Yosys port metadata.',
     );
   const netlist = JSON.parse(await fsp.readFile(workspace.latestNetlistPath, 'utf8'));
   const generated = generateStarterTestbench(netlist, moduleName, options);
@@ -941,7 +959,7 @@ ipcMain.handle('testbench:generate', async (event, moduleName, options = {}) => 
   } catch (error) {
     if (error.code === 'EEXIST')
       throw new Error(
-        `${generated.fileName} already exists. OpenBench will not overwrite an editable testbench.`,
+        `${generated.fileName} already exists. RTLDeck will not overwrite an editable testbench.`,
       );
     throw error;
   }

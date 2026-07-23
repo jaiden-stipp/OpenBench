@@ -13,7 +13,7 @@ interface OutputConsoleProps {
 type Diagnostic = ReturnType<typeof parseDiagnostic>;
 
 function presentationFor(line: string, diagnostic: Diagnostic) {
-  if (line.includes('💡')) return { kind: 'translation', label: 'INFO' };
+  if (line.includes('TIP:')) return { kind: 'translation', label: 'INFO' };
   if (diagnostic) return { kind: 'diagnostic', label: 'OPEN' };
   if (line.startsWith('$ ')) return { kind: 'command', label: 'COMMAND' };
   if (
@@ -43,6 +43,7 @@ export default function OutputConsole({ mode, text, onClear, onOpenSource }: Out
     (entry) => entry.presentation.kind === 'raw' || entry.presentation.kind === 'command',
   );
   const visible = visibleConsoleEntries(entries, showRaw);
+  const outcome = consoleOutcome(mode, text);
 
   return (
     <div className="console-panel panel" style={{ gridArea: 'console' }}>
@@ -58,6 +59,7 @@ export default function OutputConsole({ mode, text, onClear, onOpenSource }: Out
         </div>
       </div>
       <div className="console" role="log">
+        {outcome && <div className={`console-outcome ${outcome.kind}`}>{outcome.label}</div>}
         {primary.length === 0 && raw.length > 0 && !showRaw && (
           <div className="console-placeholder">Tool output is available under “Show raw.”</div>
         )}
@@ -100,14 +102,35 @@ export default function OutputConsole({ mode, text, onClear, onOpenSource }: Out
   );
 }
 
+function consoleOutcome(mode: ConsoleMode, text: string) {
+  if (mode === 'compile') {
+    if (/Compile failed/i.test(text)) return { kind: 'failed', label: 'Compile failed' };
+    if (/Compile succeeded/i.test(text))
+      return {
+        kind: 'succeeded',
+        label: /\b(?:warning|sorry):?/i.test(text)
+          ? 'Compile succeeded with warnings'
+          : 'Compile succeeded',
+      };
+  }
+  if (mode === 'simulation' && /Simulation (?:completed|succeeded)/i.test(text))
+    return { kind: 'succeeded', label: 'Simulation completed' };
+  return null;
+}
+
 function prepareConsoleEntries(text: string) {
   const seenTranslations = new Set<string>();
+  let previousLine = '';
   return text
     .replaceAll('\r\n', '\n')
     .split('\n')
     .flatMap((line) => {
       const diagnostic = parseDiagnostic(line);
-      const presentation = presentationFor(line, diagnostic);
+      const presentation =
+        line && line === previousLine
+          ? { kind: 'raw', label: '' }
+          : presentationFor(line, diagnostic);
+      previousLine = line;
       if (presentation.kind === 'translation') {
         const normalized = line.trim();
         if (seenTranslations.has(normalized)) return [];

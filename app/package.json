@@ -1,11 +1,11 @@
 {
-  "name": "openbench",
+  "name": "rtldeck",
   "version": "0.1.1",
   "description": "A low-friction desktop workbench for learning and debugging Verilog/SystemVerilog designs.",
-  "homepage": "https://github.com/jaiden-stipp/OpenBench",
+  "homepage": "https://github.com/jaiden-stipp/RTLDeck",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jaiden-stipp/OpenBench.git"
+    "url": "https://github.com/jaiden-stipp/RTLDeck.git"
   },
   "author": {
     "name": "Jaiden Stipp",
@@ -59,8 +59,8 @@
     "vite": "^8.1.4"
   },
   "build": {
-    "appId": "dev.openbench.desktop",
-    "productName": "OpenBench",
+    "appId": "dev.rtldeck.desktop",
+    "productName": "RTLDeck",
     "asar": true,
     "npmRebuild": false,
     "directories": {
@@ -75,7 +75,7 @@
     ],
     "extraResources": [
       {
-        "from": ".openbench-toolchain/oss-cad-suite",
+        "from": ".rtldeck-toolchain/oss-cad-suite",
         "to": "oss-cad-suite"
       }
     ],
@@ -83,8 +83,8 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "OpenBench-${version}-Windows-${arch}.${ext}",
-      "executableName": "OpenBench",
+      "artifactName": "RTLDeck-${version}-Windows-${arch}.${ext}",
+      "executableName": "RTLDeck",
       "icon": "build/icon.ico",
       "signAndEditExecutable": true,
       "signtoolOptions": {
@@ -96,12 +96,12 @@
         "deb",
         "tar.gz"
       ],
-      "artifactName": "OpenBench-${version}-Linux-${arch}.${ext}",
-      "executableName": "openbench",
+      "artifactName": "RTLDeck-${version}-Linux-${arch}.${ext}",
+      "executableName": "rtldeck",
       "maintainer": "Jaiden Stipp <jaidenstipp@gmail.com>",
-      "vendor": "OpenBench",
+      "vendor": "RTLDeck",
       "synopsis": "Low-friction Verilog and SystemVerilog workbench",
-      "description": "OpenBench is a desktop workbench for editing, simulating, inspecting waveforms, and exploring synthesized RTL designs.",
+      "description": "RTLDeck is a desktop workbench for editing, simulating, inspecting waveforms, and exploring synthesized RTL designs.",
       "category": "Development",
       "icon": "build/icon.png"
     },
@@ -110,7 +110,7 @@
         "dmg",
         "zip"
       ],
-      "artifactName": "OpenBench-${version}-macOS-${arch}.${ext}",
+      "artifactName": "RTLDeck-${version}-macOS-${arch}.${ext}",
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.png",
       "hardenedRuntime": true,

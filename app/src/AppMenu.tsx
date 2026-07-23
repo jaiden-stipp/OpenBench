@@ -201,6 +201,6 @@ function helpMenu({ actions, hasProject }: AppMenuProps) {
     { label: 'Send Feedback…', action: actions.feedback },
     { label: 'Report a Bug…', action: actions.reportBug },
     { separator: true },
-    { label: 'About OpenBench', action: actions.about },
+    { label: 'About RTLDeck', action: actions.about },
   ];
 }

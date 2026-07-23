@@ -63,7 +63,7 @@ test('translates an Icarus syntax error and keeps its exact source location', ()
   );
   assert.equal(translated.id, 'syntax');
   assert.deepEqual(translated.location, { path: 'rtl/fsm.sv', line: 17, column: 1 });
-  assert.match(formatTranslation(translated), /^rtl\/fsm\.sv:17:1: 💡/);
+  assert.match(formatTranslation(translated), /^rtl\/fsm\.sv:17:1: TIP:/);
 });
 
 test('translates Verilator unsupported errors at the user line', () => {
@@ -74,6 +74,24 @@ test('translates Verilator unsupported errors at the user line', () => {
   );
   assert.equal(translated.id, 'unsupported-construct');
   assert.equal(translated.location.line, 9);
+});
+
+test('treats the Icarus always-comb sensitivity limitation as a nonfatal warning', () => {
+  const translated = translateErrorLine(
+    'cpu.sv:42: sorry: constant selects in always_* processes are not currently supported (all bits will be included).',
+    'iverilog',
+    path.resolve('project'),
+  );
+  assert.equal(translated.id, 'iverilog-always-comb-sensitivity');
+  assert.match(translated.title, /broader sensitivity/i);
+  assert.doesNotMatch(translated.title, /not supported/i);
+  assert.match(translated.explanation, /Compilation can continue/);
+  const actualIcarusWording = translateErrorLine(
+    "ControlUnit.sv:103: sorry: constant selects in always_* processes are not fully supported (the process will be sensitive to all bits in 'opcode[6:0]').",
+    'iverilog',
+    path.resolve('project'),
+  );
+  assert.equal(actualIcarusWording.id, 'iverilog-always-comb-sensitivity');
 });
 
 test('buffers split tool output and records unmatched errors separately', () => {
@@ -98,7 +116,7 @@ test('does not blame HDL include paths for a missing packaged shared library', (
 });
 
 test('source construct lookup caches source lines for one translation run', (context) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openbench-translator-cache-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rtldeck-translator-cache-'));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, 'top.sv'), 'covergroup coverage;\nendgroup\n');
   const cache = new Map();

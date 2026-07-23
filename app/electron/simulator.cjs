@@ -73,11 +73,11 @@ function compileBreakpointMonitor(breakpoints = []) {
   if (!normalized.length) return { source: '', roots: [], normalized };
   const source = [
     '`timescale 1ns/1ps',
-    'module rtlbench_breakpoint_monitor;',
+    'module rtldeck_breakpoint_monitor;',
     ...normalized.flatMap((breakpoint, index) => [
       `  always @(${breakpoint.signalPath}) begin`,
       `    if (${breakpoint.signalPath} === ${breakpoint.literal}) begin`,
-      `      $display("[RTLBENCH_BREAKPOINT] ${breakpoint.signalPath} == ${breakpoint.value} at time %0t", $time);`,
+      `      $display("[RTLDECK_BREAKPOINT] ${breakpoint.signalPath} == ${breakpoint.value} at time %0t", $time);`,
       '      $finish;',
       '    end',
       '  end',
@@ -98,7 +98,7 @@ async function stageSimulationAssets(projectRoot, runDirectory) {
   const visit = async (directory, relativeDirectory = '') => {
     const entries = await fsp.readdir(directory, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name === '.openbench-runs' || entry.name === '.rtlbench-runs') continue;
+      if (['.rtldeck-runs', '.openbench-runs', '.rtlbench-runs'].includes(entry.name)) continue;
       const relative = path.join(relativeDirectory, entry.name);
       const absolute = path.join(directory, entry.name);
       if (entry.isDirectory()) {
@@ -129,10 +129,10 @@ async function createTraceMonitor(runDirectory, topModule, absoluteFiles) {
   const contents = await Promise.all(absoluteFiles.map((file) => fsp.readFile(file, 'utf8')));
   const { hasHdlToken } = await hdlStructure;
   if (contents.some((content) => hasHdlToken(content, '$dumpvars'))) return null;
-  const monitorPath = path.join(runDirectory, 'openbench_trace_monitor.sv');
+  const monitorPath = path.join(runDirectory, 'rtldeck_trace_monitor.sv');
   await fsp.writeFile(
     monitorPath,
-    `module openbench_trace_monitor;\n  initial begin\n    $dumpfile("openbench.vcd");\n    $dumpvars(0, ${topModule});\n  end\nendmodule\n`,
+    `module rtldeck_trace_monitor;\n  initial begin\n    $dumpfile("rtldeck.vcd");\n    $dumpvars(0, ${topModule});\n  end\nendmodule\n`,
     'utf8',
   );
   return monitorPath;
@@ -152,7 +152,7 @@ async function runIcarusSimulation({
     const portable = locateIcarus(mount.root);
     if (!portable) throw new Error('Portable Icarus Verilog was not found.');
     const runId = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
-    const runDirectory = path.join(projectRoot, '.openbench-runs', runId);
+    const runDirectory = path.join(projectRoot, '.rtldeck-runs', runId);
     await fsp.mkdir(runDirectory, { recursive: true });
     await stageSimulationAssets(projectRoot, runDirectory);
     const bytecode = path.join(runDirectory, 'simulation.vvp');
@@ -164,11 +164,11 @@ async function runIcarusSimulation({
     const traceMonitorPath = await createTraceMonitor(runDirectory, topModule, absoluteFiles);
     if (topModule) compileArgs.push('-s', topModule);
     else for (const root of monitor.roots) compileArgs.push('-s', root);
-    if (monitor.source) compileArgs.push('-s', 'rtlbench_breakpoint_monitor');
-    if (traceMonitorPath) compileArgs.push('-s', 'openbench_trace_monitor');
+    if (monitor.source) compileArgs.push('-s', 'rtldeck_breakpoint_monitor');
+    if (traceMonitorPath) compileArgs.push('-s', 'rtldeck_trace_monitor');
     compileArgs.push(...absoluteFiles);
     if (monitor.source) {
-      const monitorPath = path.join(runDirectory, 'rtlbench_breakpoints.sv');
+      const monitorPath = path.join(runDirectory, 'rtldeck_breakpoints.sv');
       await fsp.writeFile(monitorPath, monitor.source, 'utf8');
       compileArgs.push(monitorPath);
     }
@@ -190,7 +190,7 @@ async function runIcarusSimulation({
     let breakpointOutput = '';
     const captureOutput = (stream, text) => {
       breakpointOutput = `${breakpointOutput}${text}`.slice(-4096);
-      const match = breakpointOutput.match(/\[RTLBENCH_BREAKPOINT\]\s+(.+?)\s+at time\s+(\d+)/);
+      const match = breakpointOutput.match(/\[RTLDECK_BREAKPOINT\]\s+(.+?)\s+at time\s+(\d+)/);
       if (match) breakpointHit = { condition: match[1], time: Number(match[2]) };
       onOutput(stream, text);
     };
@@ -236,7 +236,7 @@ async function runVerilatorSimulation({
   const mount = await mountSuite(suiteRoot);
   try {
     const runId = `verilator-${new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-')}`;
-    const runDirectory = path.join(projectRoot, '.openbench-runs', runId);
+    const runDirectory = path.join(projectRoot, '.rtldeck-runs', runId);
     const objectDirectory = path.join(runDirectory, 'obj_dir');
     await fsp.mkdir(runDirectory, { recursive: true });
     const executable = path.join(
@@ -244,7 +244,7 @@ async function runVerilatorSimulation({
       'bin',
       process.platform === 'win32' ? 'verilator_bin.exe' : 'verilator_bin',
     );
-    const outputName = process.platform === 'win32' ? 'rtlbench_sim.exe' : 'rtlbench_sim';
+    const outputName = process.platform === 'win32' ? 'rtldeck_sim.exe' : 'rtldeck_sim';
     const args = ['--binary', '--timing', '--trace', '--Mdir', objectDirectory, '-o', outputName];
     for (const includePath of includePaths)
       args.push(`-I${path.resolve(projectRoot, includePath)}`);

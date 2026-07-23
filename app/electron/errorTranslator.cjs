@@ -11,10 +11,10 @@ const UNSUPPORTED_SOURCE_CONSTRUCTS = [
 const ERROR_PATTERNS = [
   {
     id: 'unsupported-construct',
-    match: /(?:sorry:|not currently supported|unsupported|%Error-UNSUPPORTED)/i,
+    match: /(?:not currently supported|unsupported|%Error-UNSUPPORTED)/i,
     title: 'This construct is not supported by the selected backend',
     explain:
-      'Try the simpler synthesizable form shown in OpenBench Help, or switch backends. The raw tool message below remains authoritative.',
+      'Try the simpler synthesizable form shown in RTLDeck Help, or switch backends. The raw tool message below remains authoritative.',
   },
   {
     id: 'undeclared-name',
@@ -38,7 +38,7 @@ const ERROR_PATTERNS = [
       /(?:error while loading shared libraries|cannot open shared object file|dyld:.*library not loaded)/i,
     title: 'The bundled backend is missing a native runtime dependency',
     explain:
-      'This is an OpenBench installation/package problem, not an error in your HDL. Reinstall the native package or report this raw line with your operating system and architecture.',
+      'This is an RTLDeck installation/package problem, not an error in your HDL. Reinstall the native package or report this raw line with your operating system and architecture.',
   },
   {
     id: 'missing-include',
@@ -71,6 +71,14 @@ const ERROR_PATTERNS = [
 ];
 
 const INFO_PATTERNS = [
+  {
+    id: 'iverilog-always-comb-sensitivity',
+    match:
+      /sorry:\s*constant selects in always_(?:\*|comb|latch|ff) processes are not (?:currently|fully) supported/i,
+    title: 'Icarus used a broader sensitivity set',
+    explain: () =>
+      'Compilation can continue. Icarus will reevaluate this process when any referenced bit changes, which is conservative and normally preserves the intended simulation behavior.',
+  },
   {
     id: 'vcd-open',
     match: /VCD info:\s*dumpfile\s+(.+?)\s+opened for output/i,
@@ -109,7 +117,7 @@ const INFO_PATTERNS = [
     match: /Executing WRITE_JSON pass/i,
     title: 'RTL netlist generation is complete',
     explain: () =>
-      'OpenBench will render the resulting Yosys JSON; HDL text is not hand-parsed for the schematic.',
+      'RTLDeck will render the resulting Yosys JSON; HDL text is not hand-parsed for the schematic.',
   },
 ];
 
@@ -148,19 +156,19 @@ function translateErrorLine(line, backend, projectRoot, sourceCache = new Map())
     location && /(?:syntax error|invalid module item)/i.test(line)
       ? unsupportedConstructAt(projectRoot, location, sourceCache)
       : null;
-  const errorPattern = sourceConstruct
-    ? ERROR_PATTERNS.find((candidate) => candidate.id === 'unsupported-construct')
-    : ERROR_PATTERNS.find((candidate) => candidate.match.test(line));
-  const infoMatch = !errorPattern
-    ? INFO_PATTERNS.map((candidate) => ({
-        pattern: candidate,
-        match: line.match(candidate.match),
-      })).find((item) => item.match)
-    : null;
+  const infoMatch = INFO_PATTERNS.map((candidate) => ({
+    pattern: candidate,
+    match: line.match(candidate.match),
+  })).find((item) => item.match);
+  const errorPattern = infoMatch
+    ? null
+    : sourceConstruct
+      ? ERROR_PATTERNS.find((candidate) => candidate.id === 'unsupported-construct')
+      : ERROR_PATTERNS.find((candidate) => candidate.match.test(line));
   const pattern = errorPattern || infoMatch?.pattern;
   if (!pattern) return null;
   const explanation = sourceConstruct
-    ? `${sourceConstruct} is outside OpenBench's beginner-oriented simulator overlap. Use synthesizable RTL plus an editable procedural testbench, or choose a backend that supports it. Raw output remains authoritative.`
+    ? `${sourceConstruct} is outside RTLDeck's beginner-oriented simulator overlap. Use synthesizable RTL plus an editable procedural testbench, or choose a backend that supports it. Raw output remains authoritative.`
     : typeof pattern.explain === 'function'
       ? pattern.explain(infoMatch.match)
       : pattern.explain;
@@ -182,7 +190,7 @@ function unsupportedConstructAt(projectRoot, location, sourceCache = new Map()) 
 }
 
 function looksLikeUnmatchedError(line) {
-  return /(?:\berror\b|sorry:|unsupported|fatal)/i.test(line);
+  return /(?:\berror\b|unsupported|fatal)/i.test(line);
 }
 
 function createErrorTranslator({ backend, projectRoot }) {
@@ -214,7 +222,7 @@ function formatTranslation(translation) {
   const prefix = translation.location
     ? `${translation.location.path}:${translation.location.line}:${translation.location.column}: `
     : '';
-  return `${prefix}💡 ${translation.title} — ${translation.explanation}\n`;
+  return `${prefix}TIP: ${translation.title} — ${translation.explanation}\n`;
 }
 
 module.exports = {

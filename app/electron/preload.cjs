@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-const openBenchApi = {
+const rtlDeckApi = {
   selectProjectFolder: () => ipcRenderer.invoke('project:selectFolder'),
   activateProject: (selection) => ipcRenderer.invoke('project:activate', selection),
   chooseNewProjectParent: () => ipcRenderer.invoke('project:chooseNewParent'),
@@ -59,6 +59,7 @@ const openBenchApi = {
   },
 };
 
-contextBridge.exposeInMainWorld('openbench', openBenchApi);
-// Compatibility for pre-rename renderer extensions. New code must use window.openbench.
-contextBridge.exposeInMainWorld('rtlbench', openBenchApi);
+contextBridge.exposeInMainWorld('rtldeck', rtlDeckApi);
+// Compatibility for pre-rename renderer extensions. New code must use window.rtldeck.
+contextBridge.exposeInMainWorld('openbench', rtlDeckApi);
+contextBridge.exposeInMainWorld('rtlbench', rtlDeckApi);

@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { writePreference } from '../compatibility';
 
 type LoadProject = (project: ProjectData, resetWorkspace?: boolean) => Promise<void>;
 type OpenPath = (path: string, line?: number, column?: number) => Promise<void>;
@@ -17,7 +18,7 @@ type ProjectPickerOptions = {
 export function useProjectPickerActions(options: ProjectPickerOptions) {
   const openProject = async () => {
     try {
-      const selection = await window.openbench.selectProjectFolder();
+      const selection = await window.rtldeck.selectProjectFolder();
       if (selection) options.setImportSelection(selection);
     } catch (error) {
       options.setStatus(errorMessage(error));
@@ -40,7 +41,7 @@ export function useProjectPickerActions(options: ProjectPickerOptions) {
         options.setStatus('This project is already open');
         return;
       }
-      const next = await window.openbench.activateProject({
+      const next = await window.rtldeck.activateProject({
         root: options.importSelection.root,
         name,
         files,
@@ -57,7 +58,7 @@ export function useProjectPickerActions(options: ProjectPickerOptions) {
 
   const beginNewProject = async () => {
     try {
-      const parent = await window.openbench.chooseNewProjectParent();
+      const parent = await window.rtldeck.chooseNewProjectParent();
       if (parent) options.setNewProjectParent(parent);
     } catch (error) {
       options.setStatus(errorMessage(error));
@@ -67,7 +68,7 @@ export function useProjectPickerActions(options: ProjectPickerOptions) {
   const createNewProject = async (name: string, withStarter: boolean, topModule: string) => {
     if (!options.newProjectParent) return;
     try {
-      const next = await window.openbench.createProject({
+      const next = await window.rtldeck.createProject({
         parent: options.newProjectParent,
         name,
         withStarter,
@@ -100,14 +101,14 @@ type LearningProjectOptions = {
 
 export function useLearningProjectActions(options: LearningProjectOptions) {
   const completeTutorial = () => {
-    localStorage.setItem('openbench.tutorialComplete', 'true');
+    writePreference('tutorialComplete', 'true');
     options.setShowTutorial(false);
   };
 
   const openExampleProject = async (keepTutorial = false, lessonId = 'getting-started') => {
     try {
       if (!keepTutorial) completeTutorial();
-      const next = await window.openbench.openExampleProject(lessonId);
+      const next = await window.rtldeck.openExampleProject(lessonId);
       await options.loadProject(next);
       await options.openPath('getting_started_counter.sv');
       options.setStatus(keepTutorial ? 'Example ready: press Run Compile' : 'Example ready');
@@ -118,7 +119,7 @@ export function useLearningProjectActions(options: LearningProjectOptions) {
   };
 
   const openLearningProject = async (lessonId: string) => {
-    const next = await window.openbench.openExampleProject(lessonId);
+    const next = await window.rtldeck.openExampleProject(lessonId);
     await options.loadProject(next);
     const design = findDesignFile(next.files);
     if (design) await options.openPath(design);

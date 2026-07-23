@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import openBenchLogo from './assets/openbench-logo.png';
+import ThemeLogo from './components/ThemeLogo';
 
 const TASKS = [
   {
@@ -12,7 +12,7 @@ const TASKS = [
   {
     eyebrow: 'STEP 2 OF 5',
     title: 'Run the simulation',
-    text: 'Click Run Simulation. OpenBench runs the testbench and opens its waveform.',
+    text: 'Click Run Simulation. RTLDeck runs the testbench and opens its waveform.',
     hint: 'The waveform uses the bundled simulator selected in project settings.',
     target: '[data-testid="run-simulation"]',
   },
@@ -33,7 +33,7 @@ const TASKS = [
   {
     eyebrow: 'STEP 5 OF 5',
     title: 'Jump back to the source',
-    text: 'Click any block in the schematic. OpenBench will open the Verilog line that produced it.',
+    text: 'Select a block, then click Open source in the schematic toolbar.',
     hint: 'Waveform signals and schematic connections can also take you back to source.',
     target: '.schematic-node',
   },
@@ -129,7 +129,7 @@ function TutorialIntroduction({
         aria-labelledby="onboarding-title"
       >
         <div className="onboarding-visual">
-          <img className="theme-logo" src={openBenchLogo} alt="" />
+          <ThemeLogo />
           <div className="onboarding-flow">
             <span>Compile</span>
             <b>→</b>
@@ -145,9 +145,9 @@ function TutorialIntroduction({
             <small>QUICK START</small>
             <button onClick={onSkip}>Skip tutorial</button>
           </div>
-          <h1 id="onboarding-title">Learn OpenBench by using it</h1>
+          <h1 id="onboarding-title">Learn RTLDeck by using it</h1>
           <p>
-            Practice the complete workflow in an example project. OpenBench waits for each action
+            Practice the complete workflow in an example project. RTLDeck waits for each action
             before continuing.
           </p>
           <ul>

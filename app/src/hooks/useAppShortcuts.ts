@@ -71,11 +71,11 @@ function handleShortcut(event: KeyboardEvent, options: ShortcutOptions) {
     [event.key === 'F5', () => ready && void options.runSimulation()],
     [
       options.activeView === 'waveform' && modifier && (event.key === '+' || event.key === '='),
-      () => window.dispatchEvent(new CustomEvent('rtlbench:wave-zoom', { detail: 0.5 })),
+      () => window.dispatchEvent(new CustomEvent('rtldeck:wave-zoom', { detail: 0.5 })),
     ],
     [
       options.activeView === 'waveform' && modifier && event.key === '-',
-      () => window.dispatchEvent(new CustomEvent('rtlbench:wave-zoom', { detail: 2 })),
+      () => window.dispatchEvent(new CustomEvent('rtldeck:wave-zoom', { detail: 2 })),
     ],
   ] as const;
   const match = shortcuts.find(([matches]) => matches);

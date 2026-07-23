@@ -19,8 +19,24 @@ const {
   renameEntry,
 } = require('../electron/projectManager.cjs');
 
+test('loads an OpenBench manifest as a legacy RTLDeck project', async () => {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-legacy-manifest-'));
+  try {
+    await fsp.writeFile(path.join(root, 'design.sv'), 'module design; endmodule\n');
+    await fsp.writeFile(
+      path.join(root, '.openbench.json'),
+      JSON.stringify({ name: 'Legacy project', files: ['design.sv'], folders: [] }),
+    );
+    const manifest = await loadManifest(root);
+    assert.equal(manifest.name, 'Legacy project');
+    assert.deepEqual(manifest.files, ['design.sv']);
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
 test('folder import persists exactly the selected HDL files', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-import-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-import-'));
   try {
     await fsp.writeFile(path.join(root, 'design.sv'), 'module design; endmodule\n');
     await fsp.writeFile(path.join(root, 'unused.v'), 'module unused; endmodule\n');
@@ -34,12 +50,12 @@ test('folder import persists exactly the selected HDL files', async () => {
 });
 
 test('new starter project is immediately runnable and has project settings', async () => {
-  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-new-'));
+  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-new-'));
   try {
     const project = await createProject(parent, 'first-counter', true);
     assert.deepEqual(new Set(project.files), new Set(['first_counter.sv', 'first_counter_tb.sv']));
     const settings = JSON.parse(
-      await fsp.readFile(path.join(project.root, '.rtlbench.json'), 'utf8'),
+      await fsp.readFile(path.join(project.root, '.rtldeck-settings.json'), 'utf8'),
     );
     assert.equal(settings.topModule, 'first_counter');
     assert.equal(settings.simulationTop, 'first_counter_tb');
@@ -53,12 +69,12 @@ test('new starter project is immediately runnable and has project settings', asy
 });
 
 test('new starter project honors the design top chosen in the creation dialog', async () => {
-  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-custom-top-'));
+  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-custom-top-'));
   try {
     const project = await createProject(parent, 'Course CPU', true, 'cpu_core');
     assert.deepEqual(new Set(project.files), new Set(['cpu_core.sv', 'cpu_core_tb.sv']));
     const settings = JSON.parse(
-      await fsp.readFile(path.join(project.root, '.rtlbench.json'), 'utf8'),
+      await fsp.readFile(path.join(project.root, '.rtldeck-settings.json'), 'utf8'),
     );
     assert.equal(settings.topModule, 'cpu_core');
     assert.equal(settings.simulationTop, 'cpu_core_tb');
@@ -72,7 +88,7 @@ test('new starter project honors the design top chosen in the creation dialog', 
 });
 
 test('create, rename, duplicate, and remove keep the manifest synchronized', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-files-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-files-'));
   try {
     await activateProject(root, [], 'Files');
     await createFile(root, 'rtl/counter.sv', 'module counter; endmodule\n');
@@ -89,7 +105,7 @@ test('create, rename, duplicate, and remove keep the manifest synchronized', asy
 });
 
 test('empty folders persist in the project tree and stay synchronized', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-folders-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-folders-'));
   try {
     await activateProject(root, [], 'Folders');
     assert.equal(await createFolder(root, 'rtl/core'), 'rtl/core');
@@ -112,7 +128,7 @@ test('empty folders persist in the project tree and stay synchronized', async ()
 });
 
 test('project paths cannot escape the project root', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-security-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-security-'));
   try {
     await assert.rejects(() => createFile(root, '../escape.sv'), /inside the project/);
   } finally {
@@ -121,7 +137,7 @@ test('project paths cannot escape the project root', async () => {
 });
 
 test('file import rejects duplicate basenames without copying either file', async (context) => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-duplicate-import-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-duplicate-import-'));
   context.after(() => fsp.rm(root, { recursive: true, force: true }));
   const first = path.join(root, 'source-a');
   const second = path.join(root, 'source-b');

@@ -233,7 +233,7 @@ function ContextMenuDialog(props: DialogLayerProps) {
         props.setContextMenu(null);
       }}
       onReveal={(node) => {
-        void window.openbench.revealFile(node.path);
+        void window.rtldeck.revealFile(node.path);
         props.setContextMenu(null);
       }}
       onRemove={props.onRemoveProjectEntry}

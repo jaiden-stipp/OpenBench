@@ -72,6 +72,7 @@ async function recentGeneratedFiles(projectRoot, extension, limit) {
       }
     }
   }
+  await walk(path.join(projectRoot, '.rtldeck-runs'));
   await walk(path.join(projectRoot, '.openbench-runs'));
   await walk(path.join(projectRoot, '.rtlbench-runs'));
   return files.sort((a, b) => b.modified - a.modified).slice(0, limit);

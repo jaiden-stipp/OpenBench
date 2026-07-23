@@ -119,7 +119,7 @@ function HealthTab({
   };
   const runSelfTest = async () => {
     setChecking(true);
-    setHealth(await window.openbench.runToolchainSelfTest());
+    setHealth(await window.rtldeck.runToolchainSelfTest());
     setChecking(false);
   };
   return (
@@ -373,7 +373,7 @@ function SupportTab({
 }) {
   const [includeSource, setIncludeSource] = useState(false);
   const exportBundle = async () => {
-    const saved = await window.openbench.exportSupportBundle({ consoleText, includeSource });
+    const saved = await window.rtldeck.exportSupportBundle({ consoleText, includeSource });
     setMessage(saved ? `Saved diagnostic bundle to ${saved}` : 'Export canceled.');
   };
   return (
@@ -398,7 +398,7 @@ function SupportTab({
       </button>
       <div className="bundle-contents">
         <strong>Always included</strong>
-        <span>OpenBench/OS versions, project filenames, settings, and recent console output</span>
+        <span>RTLDeck/OS versions, project filenames, settings, and recent console output</span>
         <strong>Excluded by default</strong>
         <span>HDL contents, generated waveforms, netlists, and recovery drafts</span>
       </div>

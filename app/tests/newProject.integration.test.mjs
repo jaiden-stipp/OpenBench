@@ -13,7 +13,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
 
 test('New Project starter runs out of the box with the portable Icarus backend', async () => {
-  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-first-run-'));
+  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-first-run-'));
   try {
     const project = await createProject(parent, 'student-demo', true);
     const result = await runIcarusSimulation({

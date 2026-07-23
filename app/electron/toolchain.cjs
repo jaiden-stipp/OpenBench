@@ -10,6 +10,7 @@ function resolveToolchainRoot({
 }) {
   const candidates = [
     configuredPath && path.resolve(projectRoot, configuredPath),
+    env.RTLDECK_TOOLCHAIN && path.resolve(env.RTLDECK_TOOLCHAIN),
     env.OPENBENCH_TOOLCHAIN && path.resolve(env.OPENBENCH_TOOLCHAIN),
     env.RTLBENCH_TOOLCHAIN && path.resolve(env.RTLBENCH_TOOLCHAIN),
     resourcesPath && path.join(resourcesPath, 'oss-cad-suite'),
@@ -18,7 +19,7 @@ function resolveToolchainRoot({
   const root = candidates.find((candidate) => fs.existsSync(path.join(candidate, 'bin')));
   if (root) return root;
   throw new Error(
-    'OSS CAD Suite was not found. Set its extracted folder in Project Settings or set OPENBENCH_TOOLCHAIN.',
+    'OSS CAD Suite was not found. Set its extracted folder in Project Settings or set RTLDECK_TOOLCHAIN.',
   );
 }
 

@@ -1,6 +1,6 @@
 ## What changed
 
-Describe the user-visible result and why it belongs in OpenBench.
+Describe the user-visible result and why it belongs in RTLDeck.
 
 ## Validation
 

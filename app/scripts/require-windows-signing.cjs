@@ -9,7 +9,7 @@ if (process.platform !== 'win32') {
 if (!hasCertificate || !hasPassword) {
   console.error(
     [
-      'Refusing to create an unsigned OpenBench Windows release.',
+      'Refusing to create an unsigned RTLDeck Windows release.',
       'Set WIN_CSC_LINK (or CSC_LINK) to the Authenticode certificate and',
       'WIN_CSC_KEY_PASSWORD (or CSC_KEY_PASSWORD) to its password.',
       'For local UI testing only, use pnpm package:win:unsigned:dir.',

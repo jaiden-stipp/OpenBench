@@ -24,7 +24,7 @@ export function useProjectSources(project: ProjectData | null) {
       setSources([]);
       return;
     }
-    void window.openbench
+    void window.rtldeck
       .readProjectSources()
       .then((files) => {
         if (generation.current === request) setSources(files);
@@ -53,7 +53,7 @@ export function useWaveformHistory(
       return;
     }
     let cancelled = false;
-    void window.openbench
+    void window.rtldeck
       .listWaveformRuns()
       .then((runs) => {
         if (!cancelled)
@@ -65,7 +65,7 @@ export function useWaveformHistory(
       .catch((error) => {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
-        console.warn('OpenBench waveform history load failed', {
+        console.warn('RTLDeck waveform history load failed', {
           projectRoot,
           message,
         });
@@ -83,7 +83,7 @@ export function useWaveformHistory(
         current.map((run) => (run.id === runId ? { ...run, loading: true } : run)),
       );
       try {
-        const run = await window.openbench.readWaveformRun(runId);
+        const run = await window.rtldeck.readWaveformRun(runId);
         postWaveformRequest(
           workerRef.current,
           { ...run, purpose: open ? 'open' : 'history', id: runId },
@@ -125,8 +125,8 @@ export function useOpenPath(options: OpenPathOptions) {
       try {
         let recovered = false;
         if (!openFilesRef.current.some((item) => item.path === path)) {
-          const file = await window.openbench.readFile(path);
-          const draft = await window.openbench.loadRecoveryDraft(path);
+          const file = await window.rtldeck.readFile(path);
+          const draft = await window.rtldeck.loadRecoveryDraft(path);
           recovered = Boolean(draft && draft.content !== file.content);
           setOpenFiles((current) => [
             ...current,
@@ -230,7 +230,7 @@ export function useLoadProject(options: LoadProjectOptions) {
         });
       setConsoleText(`Opened ${next.root}\n`);
       setStatus(`${next.files.length} project files`);
-      setSettings(await window.openbench.getSettings());
+      setSettings(await window.rtldeck.getSettings());
     },
     [
       projectGenerationRef,

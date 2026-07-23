@@ -1,4 +1,4 @@
-# Contributing to OpenBench
+# Contributing to RTLDeck
 
 Thank you for helping make Verilog simulation easier to approach.
 
@@ -27,7 +27,7 @@ pnpm format:check
 pnpm start
 ```
 
-Put the native suite at `.toolchain/oss-cad-suite`, or set `OPENBENCH_TOOLCHAIN_SOURCE` to its absolute path.
+Put the native suite at `.toolchain/oss-cad-suite`, or set `RTLDECK_TOOLCHAIN_SOURCE` to its absolute path.
 
 ## Pull requests
 
@@ -44,7 +44,7 @@ Put the native suite at `.toolchain/oss-cad-suite`, or set `OPENBENCH_TOOLCHAIN_
 - When a function approaches that size, extract behavior by responsibility into named helpers, hooks, or child components. Avoid arbitrary line-count splits that hide shared state or create unclear parameter lists.
 - Keep `App.tsx` as integration wiring. Project lifecycle, backend events, editor behavior, persistence, and presentation belong in focused modules under `src/hooks` and `src/components`.
 - Prefer descriptive domain names over abbreviations, and keep raw backend interaction separate from UI presentation.
-- Use `window.openbench` and `openbench.*` names in new code. Keep legacy `rtlbench` aliases inside the preload or compatibility modules rather than spreading them into new features.
+- Use `window.rtldeck` and `rtldeck.*` names in new code. Keep legacy `openbench` and `rtlbench` aliases inside preload or compatibility modules rather than spreading them into new features.
 
 The core product goal is to reduce the distance between having an HDL idea and seeing it work. Commercial-EDA complexity that does not improve that beginner workflow may be out of scope.
 

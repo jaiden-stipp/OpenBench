@@ -3,11 +3,12 @@ const path = require('node:path');
 
 const appRoot = path.resolve(__dirname, '..');
 const sourceRoot = path.resolve(
-  process.env.OPENBENCH_TOOLCHAIN_SOURCE ||
+  process.env.RTLDECK_TOOLCHAIN_SOURCE ||
+    process.env.OPENBENCH_TOOLCHAIN_SOURCE ||
     process.env.RTLBENCH_TOOLCHAIN_SOURCE ||
     path.join(appRoot, '..', '.toolchain', 'oss-cad-suite'),
 );
-const targetRoot = path.join(appRoot, '.openbench-toolchain', 'oss-cad-suite');
+const targetRoot = path.join(appRoot, '.rtldeck-toolchain', 'oss-cad-suite');
 
 async function copyFile(relativePath) {
   const source = path.join(sourceRoot, relativePath);

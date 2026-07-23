@@ -4,7 +4,8 @@ const path = require('node:path');
 const { resolveInside } = require('./security.cjs');
 
 const HDL_EXTENSIONS = new Set(['.v', '.sv', '.vh', '.svh']);
-const MANIFEST_NAME = '.openbench.json';
+const MANIFEST_NAME = '.rtldeck.json';
+const LEGACY_MANIFEST_NAMES = ['.openbench.json'];
 
 const portable = (value) => value.replaceAll('\\', '/');
 const isHdl = (value) => HDL_EXTENSIONS.has(path.extname(value).toLowerCase());
@@ -24,6 +25,7 @@ async function discoverHdlFiles(root, directory = root, output = []) {
     if (
       entry.name === '.git' ||
       entry.name === 'node_modules' ||
+      entry.name.startsWith('.rtldeck-') ||
       entry.name.startsWith('.openbench-') ||
       entry.name.startsWith('.rtlbench-')
     )
@@ -36,23 +38,30 @@ async function discoverHdlFiles(root, directory = root, output = []) {
 }
 
 async function loadManifest(root) {
-  try {
-    const parsed = JSON.parse(await fsp.readFile(path.join(root, MANIFEST_NAME), 'utf8'));
-    return {
-      version: 1,
-      name:
-        typeof parsed.name === 'string' && parsed.name.trim()
-          ? parsed.name.trim()
-          : path.basename(root),
-      files: Array.isArray(parsed.files) ? parsed.files.map(normalizeRelative).filter(isHdl) : [],
-      folders: Array.isArray(parsed.folders)
-        ? parsed.folders.map(normalizeRelative).filter((folder) => folder !== '.')
-        : [],
-    };
-  } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    throw new Error(`Unable to read ${MANIFEST_NAME}: ${error.message}`);
+  for (const manifestName of [MANIFEST_NAME, ...LEGACY_MANIFEST_NAMES]) {
+    try {
+      const parsed = JSON.parse(await fsp.readFile(path.join(root, manifestName), 'utf8'));
+      return normalizeManifest(root, parsed);
+    } catch (error) {
+      if (error.code !== 'ENOENT')
+        throw new Error(`Unable to read ${manifestName}: ${error.message}`);
+    }
   }
+  return null;
+}
+
+function normalizeManifest(root, parsed) {
+  return {
+    version: 1,
+    name:
+      typeof parsed.name === 'string' && parsed.name.trim()
+        ? parsed.name.trim()
+        : path.basename(root),
+    files: Array.isArray(parsed.files) ? parsed.files.map(normalizeRelative).filter(isHdl) : [],
+    folders: Array.isArray(parsed.folders)
+      ? parsed.folders.map(normalizeRelative).filter((folder) => folder !== '.')
+      : [],
+  };
 }
 
 function folderPaths(files, folders = []) {
@@ -184,7 +193,7 @@ async function createProject(parent, name, withStarter = true, requestedTopModul
     const testbench = `\`timescale 1ns/1ps\nmodule ${testbenchName};\n  logic clk = 1'b0;\n  logic rst_n = 1'b0;\n  logic led;\n\n  ${moduleName} dut (.clk(clk), .rst_n(rst_n), .led(led));\n  always #5 clk = ~clk;\n\n  initial begin\n    $dumpfile("${moduleName}.vcd");\n    $dumpvars(0, ${testbenchName});\n    #12 rst_n = 1'b1;\n    #80 $finish;\n  end\nendmodule\n`;
     await fsp.writeFile(path.join(root, `${testbenchName}.sv`), testbench, 'utf8');
     await fsp.writeFile(
-      path.join(root, '.rtlbench.json'),
+      path.join(root, '.rtldeck-settings.json'),
       `${JSON.stringify({ topModule: moduleName, simulationTop: testbenchName, includePaths: [], simulator: 'iverilog', toolchainPath: '' }, null, 2)}\n`,
       'utf8',
     );
@@ -201,7 +210,7 @@ function sanitizeModuleName(value) {
 async function createFile(root, relativePath, content = '') {
   const canonicalRoot = await fsp.realpath(root);
   const relative = normalizeRelative(relativePath);
-  if (!isHdl(relative)) throw new Error('OpenBench project files must use .v, .sv, .vh, or .svh.');
+  if (!isHdl(relative)) throw new Error('RTLDeck project files must use .v, .sv, .vh, or .svh.');
   const destination = resolveInside(canonicalRoot, path.join(canonicalRoot, relative));
   await fsp.mkdir(path.dirname(destination), { recursive: true });
   try {

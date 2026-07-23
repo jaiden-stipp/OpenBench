@@ -9,4 +9,4 @@ module watch_counter(
     end
 endmodule
 
-// Saved by the OpenBench watch-mode validation.
+// Saved by the RTLDeck watch-mode validation.

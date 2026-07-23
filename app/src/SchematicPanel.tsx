@@ -9,7 +9,7 @@ import {
 } from 'react';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import ELKWorker from 'elkjs/lib/elk-worker.min.js?worker';
-import { buildModuleGraph } from './netlistGraph.js';
+import { buildModuleGraph, buildOverviewGraph } from './netlistGraph.js';
 import type { ModuleGraph, SchematicEdge, SchematicNode, YosysNetlist } from './netlistGraph.js';
 
 type NodePort = { name: string; direction: string; width: number };
@@ -64,6 +64,7 @@ const symbolLabel = (symbol: SchematicNode['symbol']) =>
     compare: 'Comparator',
     logic: 'Logic gate',
     module: 'Module instance',
+    group: 'Source group',
     generic: 'Yosys cell',
   })[symbol];
 const pinId = (nodeId: string, portName: string) => `${nodeId}::${encodeURIComponent(portName)}`;
@@ -141,8 +142,9 @@ function nodeMetrics(node: SchematicNode) {
   const rows = Math.max(left.length, right.length, 1);
   const dimensionsBySymbol = {
     module: { width: 208, baseHeight: 76, startY: 34, pitch: 18 },
+    group: { width: 176, baseHeight: 68, startY: 30, pitch: 18 },
     register: { width: 132, baseHeight: 78, startY: 32, pitch: 17 },
-    mux: { width: 94, baseHeight: 68, startY: 25, pitch: 16 },
+    mux: { width: 112, baseHeight: 68, startY: 25, pitch: 16 },
     logic: { width: 82, baseHeight: 54, startY: 23, pitch: 15 },
     arithmetic: { width: 102, baseHeight: 62, startY: 25, pitch: 16 },
     compare: { width: 88, baseHeight: 56, startY: 24, pitch: 15 },
@@ -254,7 +256,7 @@ function NodeSurface({ node }: { node: LayoutNode }) {
       y="4"
       width={width - 8}
       height={height - 8}
-      rx={symbol === 'module' ? 3 : 8}
+      rx={symbol === 'module' || symbol === 'group' ? 3 : 8}
     />
   );
 }
@@ -275,7 +277,7 @@ function NodeDecoration({ node }: { node: LayoutNode }) {
           </text>
         </>
       )}
-      {symbol === 'module' && (
+      {(symbol === 'module' || symbol === 'group') && (
         <>
           <path className="module-header-line" d={`M5 29 H${width - 5}`} />
           <rect className="module-badge" x="10" y="9" width="19" height="13" rx="2" />
@@ -390,10 +392,15 @@ export default function SchematicPanel({
   const [moduleName, setModuleName] = useState(top || '');
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [selectedNet, setSelectedNet] = useState<string | null>(probeNet);
+  const [viewMode, setViewMode] = useState<'overview' | 'detail'>(() =>
+    top && Object.keys(netlist?.modules?.[top]?.cells || {}).length > 180 ? 'overview' : 'detail',
+  );
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
-  const { layout, layoutError } = useSchematicLayout(netlist, moduleName);
+  const detailNodeCount = schematicCellCount(netlist, moduleName);
+  const largeDesign = detailNodeCount > 180;
+  const { layout, layoutError } = useSchematicLayout(netlist, moduleName, viewMode);
   useEffect(() => {
     if (!layout) return;
     setScale(1);
@@ -403,6 +410,9 @@ export default function SchematicPanel({
   useEffect(() => {
     if (top) setModuleName(top);
   }, [top]);
+  useEffect(() => {
+    setViewMode(detailNodeCount > 180 ? 'overview' : 'detail');
+  }, [detailNodeCount, moduleName, netlist]);
   useEffect(() => {
     if (focusModule && netlist?.modules?.[focusModule]) setModuleName(focusModule);
   }, [focusModule, netlist]);
@@ -431,6 +441,10 @@ export default function SchematicPanel({
           layout,
           selectedNodeDetails,
           selectedNet,
+          viewMode,
+          largeDesign,
+          detailNodeCount,
+          setViewMode,
           setModuleName,
           setScale,
           setPan,
@@ -461,7 +475,17 @@ export default function SchematicPanel({
   );
 }
 
-function useSchematicLayout(netlist: YosysNetlist | null, moduleName: string) {
+function schematicCellCount(netlist: YosysNetlist | null, moduleName: string) {
+  return netlist?.modules?.[moduleName]
+    ? Object.keys(netlist.modules[moduleName].cells || {}).length
+    : 0;
+}
+
+function useSchematicLayout(
+  netlist: YosysNetlist | null,
+  moduleName: string,
+  viewMode: 'overview' | 'detail',
+) {
   const [layout, setLayout] = useState<Layout | null>(null);
   const [layoutError, setLayoutError] = useState<string | null>(null);
   const elk = useMemo(() => new ELK({ workerFactory: () => new ELKWorker() }), []);
@@ -470,7 +494,8 @@ function useSchematicLayout(netlist: YosysNetlist | null, moduleName: string) {
       setLayout(null);
       return;
     }
-    const cached = layoutCache.get(netlist)?.get(moduleName);
+    const cacheKey = `${moduleName}:${viewMode}`;
+    const cached = layoutCache.get(netlist)?.get(cacheKey);
     if (cached) {
       setLayout(cached);
       setLayoutError(null);
@@ -478,7 +503,10 @@ function useSchematicLayout(netlist: YosysNetlist | null, moduleName: string) {
     }
     let cancelled = false;
     setLayoutError(null);
-    const graph = buildModuleGraph(netlist, moduleName);
+    const graph =
+      viewMode === 'overview'
+        ? buildOverviewGraph(netlist, moduleName)
+        : buildModuleGraph(netlist, moduleName);
     const metrics = new Map(graph.nodes.map((node) => [node.id, nodeMetrics(node)]));
     void elk
       .layout(createElkInput(graph, metrics))
@@ -486,7 +514,7 @@ function useSchematicLayout(netlist: YosysNetlist | null, moduleName: string) {
         if (cancelled) return;
         const next = mapElkLayout(result, graph, metrics);
         const cachedModules = layoutCache.get(netlist) || new Map<string, Layout>();
-        cachedModules.set(moduleName, next);
+        cachedModules.set(cacheKey, next);
         layoutCache.set(netlist, cachedModules);
         setLayout(next);
       })
@@ -496,7 +524,7 @@ function useSchematicLayout(netlist: YosysNetlist | null, moduleName: string) {
     return () => {
       cancelled = true;
     };
-  }, [elk, moduleName, netlist]);
+  }, [elk, moduleName, netlist, viewMode]);
   return { layout, layoutError };
 }
 
@@ -580,9 +608,13 @@ type ToolbarProps = {
   layout: Layout | null;
   selectedNodeDetails: LayoutNode | null;
   selectedNet: string | null;
+  viewMode: 'overview' | 'detail';
+  largeDesign: boolean;
+  detailNodeCount: number;
   setModuleName: Dispatch<SetStateAction<string>>;
   setScale: Dispatch<SetStateAction<number>>;
   setPan: Dispatch<SetStateAction<{ x: number; y: number }>>;
+  setViewMode: Dispatch<SetStateAction<'overview' | 'detail'>>;
   onNavigateSource: (source: string) => void;
   onGenerateTestbench: (moduleName: string) => void;
 };
@@ -605,6 +637,25 @@ function SchematicToolbar(props: ToolbarProps) {
           ? `${summarizeNodes(props.layout.nodes)} · ${props.layout.edges.length} nets`
           : 'Laying out RTL…'}
       </span>
+      {props.largeDesign && (
+        <div
+          className="schematic-view-toggle"
+          title={`Overview groups ${props.detailNodeCount} real Yosys cells by source file; All cells shows the complete netlist`}
+        >
+          <button
+            className={props.viewMode === 'overview' ? 'active' : ''}
+            onClick={() => props.setViewMode('overview')}
+          >
+            Overview
+          </button>
+          <button
+            className={props.viewMode === 'detail' ? 'active' : ''}
+            onClick={() => props.setViewMode('detail')}
+          >
+            All cells
+          </button>
+        </div>
+      )}
       {selected && (
         <span className={`selected-node-summary ${selected.symbol}`}>
           {selected.name} · {symbolLabel(selected.symbol)}
@@ -650,6 +701,7 @@ function SchematicLegend() {
     ['logic', '∿', 'Logic'],
     ['arithmetic', 'Σ', 'Arithmetic'],
     ['module', '□', 'Module'],
+    ['group', 'S', 'Source group'],
     ['port', 'I/O', 'Port'],
   ];
   return (
@@ -872,8 +924,8 @@ function NodeText({ node }: { node: LayoutNode }) {
       {showsNodeHeading(node) && (
         <text
           className="node-name"
-          x={node.layoutWidth / 2 + (node.symbol === 'module' ? 11 : 0)}
-          y={node.symbol === 'module' ? 20 : 15}
+          x={node.layoutWidth / 2 + (['module', 'group'].includes(node.symbol) ? 11 : 0)}
+          y={['module', 'group'].includes(node.symbol) ? 20 : 15}
           textAnchor="middle"
         >
           {displayNodeName(node)}
@@ -895,23 +947,33 @@ function NodeText({ node }: { node: LayoutNode }) {
 }
 
 function displayNodeName(node: LayoutNode) {
-  const limit = node.symbol === 'module' ? 24 : node.symbol === 'register' ? 17 : 13;
+  const limit = ['module', 'group'].includes(node.symbol)
+    ? 24
+    : node.symbol === 'register'
+      ? 17
+      : 13;
   return node.name.length > limit ? `${node.name.slice(0, limit - 1)}…` : node.name;
 }
 
 function showsNodeHeading(node: LayoutNode) {
-  return ['module', 'register', 'memory', 'generic'].includes(node.symbol);
+  return ['module', 'group', 'register', 'memory', 'generic'].includes(node.symbol);
 }
 
 function showsNodeCaption(node: LayoutNode) {
-  return ['module', 'register', 'memory', 'generic'].includes(node.symbol);
+  return ['module', 'group', 'register', 'memory', 'generic'].includes(node.symbol);
 }
 
 function summarizeNodes(nodes: LayoutNode[]) {
   const modules = nodes.filter((node) => node.symbol === 'module').length;
+  const groups = nodes.filter((node) => node.symbol === 'group').length;
   const registers = nodes.filter((node) => node.symbol === 'register').length;
   const primitives = nodes.filter(
-    (node) => !['module', 'port', 'register'].includes(node.symbol),
+    (node) => !['module', 'group', 'port', 'register'].includes(node.symbol),
   ).length;
-  return `${modules} module${modules === 1 ? '' : 's'} · ${registers} register${registers === 1 ? '' : 's'} · ${primitives} primitive${primitives === 1 ? '' : 's'}`;
+  const parts = [];
+  if (groups) parts.push(`${groups} source group${groups === 1 ? '' : 's'}`);
+  if (modules) parts.push(`${modules} module instance${modules === 1 ? '' : 's'}`);
+  if (registers) parts.push(`${registers} register${registers === 1 ? '' : 's'}`);
+  if (primitives) parts.push(`${primitives} primitive${primitives === 1 ? '' : 's'}`);
+  return parts.join(' · ') || 'Ports only';
 }

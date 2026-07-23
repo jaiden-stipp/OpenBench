@@ -26,6 +26,7 @@ export type SchematicSymbol =
   | 'compare'
   | 'logic'
   | 'module'
+  | 'group'
   | 'generic';
 export type SchematicNode = {
   id: string;
@@ -55,7 +56,9 @@ export type ModuleGraph = {
   source: string | null;
   nodes: SchematicNode[];
   edges: SchematicEdge[];
+  overview?: boolean;
 };
 export function findTopModule(netlist: YosysNetlist): string | null;
 export function buildModuleGraph(netlist: YosysNetlist, moduleName: string): ModuleGraph;
+export function buildOverviewGraph(netlist: YosysNetlist, moduleName: string): ModuleGraph;
 export function sourceForNet(netlist: YosysNetlist, netName: string): string | null;

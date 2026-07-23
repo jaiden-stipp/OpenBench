@@ -13,7 +13,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const suiteRoot = path.resolve(here, '..', '..', '.toolchain', 'oss-cad-suite');
 
 test('every built-in lesson produces a genuine waveform', async () => {
-  const base = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-lessons-'));
+  const base = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-lessons-'));
   try {
     for (const [id, lesson] of Object.entries(LESSONS)) {
       const project = await ensureExampleProject(base, id);

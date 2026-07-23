@@ -32,7 +32,7 @@ function useCompileEvents(setters: BackendEventSetters) {
   } = setters;
   useEffect(
     () =>
-      window.openbench.onCompileEvent((event) => {
+      window.rtldeck.onCompileEvent((event) => {
         if (event.type === 'start') {
           setCompiling(true);
           setConsoleMode('compile');
@@ -71,7 +71,7 @@ function useSimulationEvents(setters: BackendEventSetters) {
   const { setConsoleMode, setConsoleText, setShowGuidance, setSimulating, setStatus } = setters;
   useEffect(
     () =>
-      window.openbench.onSimulationEvent((event) => {
+      window.rtldeck.onSimulationEvent((event) => {
         if (event.type === 'start') {
           setSimulating(true);
           setConsoleMode('simulation');
@@ -105,7 +105,7 @@ function useRtlEvents(setters: BackendEventSetters) {
   const { setConsoleMode, setConsoleText, setRtlRunning, setStatus } = setters;
   useEffect(
     () =>
-      window.openbench.onRtlEvent((event) => {
+      window.rtldeck.onRtlEvent((event) => {
         if (event.type === 'start') {
           setRtlRunning(true);
           setConsoleMode('rtl');

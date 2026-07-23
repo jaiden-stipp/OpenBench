@@ -1,6 +1,6 @@
 const fsp = require('node:fs/promises');
 const path = require('node:path');
-const { projectData, saveManifest } = require('./projectManager.cjs');
+const { loadManifest, projectData, saveManifest } = require('./projectManager.cjs');
 const { saveProjectSettings } = require('./settings.cjs');
 
 const DESIGN = `module getting_started_counter (
@@ -110,18 +110,22 @@ async function ensureExampleProject(baseDirectory, lessonId = 'getting-started')
       if (error.code !== 'EEXIST') throw error;
     }
   }
-  try {
-    await fsp.access(path.join(root, '.openbench.json'));
-  } catch {
+  if (!(await loadManifest(root))) {
     await saveManifest(root, {
       name: lesson.name,
       files: files.map(([name]) => name),
       folders: [],
     });
   }
-  try {
-    await fsp.access(path.join(root, '.rtlbench.json'));
-  } catch {
+  let hasSettings = false;
+  for (const settingsName of ['.rtldeck-settings.json', '.rtlbench.json']) {
+    try {
+      await fsp.access(path.join(root, settingsName));
+      hasSettings = true;
+      break;
+    } catch {}
+  }
+  if (!hasSettings) {
     await saveProjectSettings(root, {
       topModule: lesson.top,
       simulationTop: lesson.simulationTop,

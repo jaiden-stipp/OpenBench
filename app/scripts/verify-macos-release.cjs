@@ -22,9 +22,9 @@ if (!fs.existsSync(releaseRoot))
 const appBundle = fs
   .readdirSync(releaseRoot)
   .filter((name) => name.startsWith('mac'))
-  .map((name) => path.join(releaseRoot, name, 'OpenBench.app'))
+  .map((name) => path.join(releaseRoot, name, 'RTLDeck.app'))
   .find((candidate) => fs.existsSync(candidate));
-if (!appBundle) throw new Error('Packaged OpenBench.app was not found.');
+if (!appBundle) throw new Error('Packaged RTLDeck.app was not found.');
 
 const signingReady = Boolean(
   process.env.CSC_LINK &&

@@ -10,7 +10,7 @@ const { createSessionStore } = require('../electron/sessionStore.cjs');
 const { ensureExampleProject } = require('../electron/exampleProject.cjs');
 
 test('session and crash drafts survive a new store instance', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-session-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-session-'));
   try {
     const store = createSessionStore(root);
     await store.saveSession({
@@ -35,8 +35,27 @@ test('session and crash drafts survive a new store instance', async () => {
   }
 });
 
+test('loads OpenBench session and recovery data through the rename boundary', async () => {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-session-migration-'));
+  const legacy = path.join(root, 'openbench-state');
+  const current = path.join(root, 'rtldeck-state');
+  try {
+    const oldStore = createSessionStore(legacy);
+    await oldStore.saveSession({ projectRoot: 'C:/legacy', activeView: 'schematic' });
+    await oldStore.saveDraft('C:/legacy', 'top.sv', 'module top; endmodule\n');
+    const renamed = createSessionStore(current, { legacyDirectories: [legacy] });
+    assert.equal((await renamed.loadSession()).projectRoot, 'C:/legacy');
+    assert.equal(
+      (await renamed.loadDraft('C:/legacy', 'top.sv')).content,
+      'module top; endmodule\n',
+    );
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
 test('getting-started example is real, editable, and non-destructive', async () => {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'openbench-example-'));
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'rtldeck-example-'));
   try {
     const first = await ensureExampleProject(root);
     assert.deepEqual(

@@ -1,4 +1,4 @@
-# OpenBench maintainer and packaging guide
+# RTLDeck maintainer and packaging guide
 
 Packaging is a release step, not part of the normal edit/test loop. Most changes only need the development checks below. Build an installer when you intentionally want a new distributable artifact.
 
@@ -22,7 +22,7 @@ pnpm test
 
 ## Native toolchain
 
-OpenBench packages a platform-native YosysHQ OSS CAD Suite so users do not need to install simulators or edit `PATH`.
+RTLDeck packages a platform-native YosysHQ OSS CAD Suite so users do not need to install simulators or edit `PATH`.
 
 Place the extracted suite at:
 
@@ -30,20 +30,20 @@ Place the extracted suite at:
 .toolchain/oss-cad-suite/
 ```
 
-Alternatively, set `OPENBENCH_TOOLCHAIN_SOURCE` to the absolute extraction path. Stage the suite before packaging:
+Alternatively, set `RTLDECK_TOOLCHAIN_SOURCE` to the absolute extraction path. Stage the suite before packaging:
 
 ```powershell
 pnpm toolchain:stage
 ```
 
-The staged copy is written to `app/.openbench-toolchain/oss-cad-suite`. Never put a Windows suite in a Linux package or a Linux suite in a Windows package.
+The staged copy is written to `app/.rtldeck-toolchain/oss-cad-suite`. Never put a Windows suite in a Linux package or a Linux suite in a Windows package.
 
 ## Build the Windows installer
 
 Run this from Windows inside `app` after configuring an Authenticode certificate:
 
 ```powershell
-$env:WIN_CSC_LINK = "C:\secure\openbench-signing-certificate.pfx"
+$env:WIN_CSC_LINK = "C:\secure\rtldeck-signing-certificate.pfx"
 $env:WIN_CSC_KEY_PASSWORD = "<certificate password>"
 pnpm package:win
 ```
@@ -55,8 +55,8 @@ For local packaging tests that must never be distributed, use `pnpm package:win:
 Outputs:
 
 ```text
-app/release/OpenBench-<version>-Windows-x64.exe
-app/release/win-unpacked/OpenBench.exe
+app/release/RTLDeck-<version>-Windows-x64.exe
+app/release/win-unpacked/RTLDeck.exe
 ```
 
 The unpacked executable is useful for validation because it runs the same packaged application without installing it.
@@ -68,23 +68,23 @@ Do not accept a package based only on whether its window opens. Run a genuine pr
 From `app` in PowerShell:
 
 ```powershell
-$capture = (Resolve-Path ..\outputs).Path + '\openbench-package-smoke.png'
-$env:OPENBENCH_TEST_PROJECT = (Resolve-Path ..\examples\phase0).Path
-$env:OPENBENCH_TEST_ACTION = 'simulation'
-$env:OPENBENCH_CAPTURE_PATH = $capture
-Start-Process -FilePath (Resolve-Path .\release\win-unpacked\OpenBench.exe).Path -ArgumentList @('--disable-gpu', '--no-sandbox')
+$capture = (Resolve-Path ..\outputs).Path + '\rtldeck-package-smoke.png'
+$env:RTLDECK_TEST_PROJECT = (Resolve-Path ..\examples\phase0).Path
+$env:RTLDECK_TEST_ACTION = 'simulation'
+$env:RTLDECK_CAPTURE_PATH = $capture
+Start-Process -FilePath (Resolve-Path .\release\win-unpacked\RTLDeck.exe).Path -ArgumentList @('--disable-gpu', '--no-sandbox')
 ```
 
 Then verify:
 
 - the capture exists and shows the waveform viewer;
-- a new nonempty VCD exists under `examples/phase0/.openbench-runs/`;
+- a new nonempty VCD exists under `examples/phase0/.rtldeck-runs/`;
 - the console command paths point into `release/win-unpacked/resources/oss-cad-suite`.
 
 Generate a checksum before distributing the installer:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\release\OpenBench-*-Windows-x64.exe
+Get-FileHash -Algorithm SHA256 .\release\RTLDeck-*-Windows-x64.exe
 ```
 
 ## Linux and macOS
@@ -93,13 +93,13 @@ Build each package on its native operating system with that operating system's O
 
 ```bash
 # Linux: install current ClamAV definitions and configure a release-signing key.
-export LINUX_GPG_PRIVATE_KEY="$(cat /secure/openbench-release-key.asc)"
+export LINUX_GPG_PRIVATE_KEY="$(cat /secure/rtldeck-release-key.asc)"
 export LINUX_GPG_PASSPHRASE="<key passphrase>"
 export LINUX_GPG_KEY_ID="<optional key fingerprint>"
 pnpm package:linux
 
 # macOS: configure Developer ID and Apple notarization credentials.
-export CSC_LINK="/secure/openbench-developer-id.p12"
+export CSC_LINK="/secure/rtldeck-developer-id.p12"
 export CSC_KEY_PASSWORD="<certificate password>"
 export APPLE_ID="<Apple developer account>"
 export APPLE_APP_SPECIFIC_PASSWORD="<app-specific password>"

@@ -11,10 +11,10 @@ const { registerWaveformIpc, HISTORY_LIMIT } = require('../electron/ipc/waveform
 const { createWorkspaceRegistry } = require('../electron/workspaceController.cjs');
 
 test('waveform history returns bounded metadata and loads content only on demand', async (context) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openbench-wave-history-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'rtldeck-wave-history-'));
   context.after(() => fs.rm(root, { recursive: true, force: true }));
   for (let index = 0; index < HISTORY_LIMIT + 3; index += 1) {
-    const directory = path.join(root, '.openbench-runs', `run-${index}`);
+    const directory = path.join(root, '.rtldeck-runs', `run-${index}`);
     await fs.mkdir(directory, { recursive: true });
     await fs.writeFile(path.join(directory, 'simulation.vcd'), `$enddefinitions $end\n#${index}\n`);
   }

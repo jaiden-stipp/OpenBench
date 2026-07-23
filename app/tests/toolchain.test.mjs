@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const { resolveToolchainRoot } = require('../electron/toolchain.cjs');
 
 test('prefers a configured project-relative OSS CAD Suite', async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'rtlbench-toolchain-'));
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'rtldeck-toolchain-'));
   try {
     await mkdir(path.join(directory, 'tools', 'suite', 'bin'), { recursive: true });
     assert.equal(

@@ -28,7 +28,7 @@ export function useProjectSettings(options: ProjectSettingsOptions) {
   } = options;
   return useCallback(
     async (next: ProjectSettings) => {
-      const saved = await window.openbench.saveSettings(next);
+      const saved = await window.rtldeck.saveSettings(next);
       const includePathsChanged =
         settings.includePaths.join('\0') !== saved.includePaths.join('\0');
       const rtlChanged = settings.topModule !== saved.topModule || includePathsChanged;

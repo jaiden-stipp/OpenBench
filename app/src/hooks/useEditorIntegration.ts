@@ -67,13 +67,25 @@ function useEditorWindowEvents(options: EditorIntegrationOptions) {
       setNewProjectParent((event as CustomEvent<string>).detail);
     const showImport = (event: Event) =>
       setImportSelection((event as CustomEvent<ProjectSelection>).detail);
+    window.addEventListener('rtldeck:insert-editor-text', insertText);
+    window.addEventListener('rtldeck:show-concept', showConcept);
+    window.addEventListener('openbench:insert-editor-text', insertText);
+    window.addEventListener('openbench:show-concept', showConcept);
     window.addEventListener('rtlbench:insert-editor-text', insertText);
     window.addEventListener('rtlbench:show-concept', showConcept);
+    window.addEventListener('rtldeck:show-new-project', showNewProject);
+    window.addEventListener('rtldeck:show-import', showImport);
     window.addEventListener('openbench:show-new-project', showNewProject);
     window.addEventListener('openbench:show-import', showImport);
     return () => {
+      window.removeEventListener('rtldeck:insert-editor-text', insertText);
+      window.removeEventListener('rtldeck:show-concept', showConcept);
+      window.removeEventListener('openbench:insert-editor-text', insertText);
+      window.removeEventListener('openbench:show-concept', showConcept);
       window.removeEventListener('rtlbench:insert-editor-text', insertText);
       window.removeEventListener('rtlbench:show-concept', showConcept);
+      window.removeEventListener('rtldeck:show-new-project', showNewProject);
+      window.removeEventListener('rtldeck:show-import', showImport);
       window.removeEventListener('openbench:show-new-project', showNewProject);
       window.removeEventListener('openbench:show-import', showImport);
     };

@@ -17,7 +17,7 @@ test('real Icarus simulation produces a parseable VCD', async () => {
   const result = await runIcarusSimulation({
     projectRoot,
     suiteRoot,
-    files: ['rtlbench_smoke.sv', 'rtlbench_smoke_tb.sv'],
+    files: ['rtldeck_smoke.sv', 'rtldeck_smoke_tb.sv'],
     onOutput: (_stream, text) => {
       output += text;
     },

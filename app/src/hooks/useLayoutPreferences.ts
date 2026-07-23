@@ -28,7 +28,7 @@ export function useLayoutPreferences(options: LayoutPreferences) {
 
 function useAccessibilityPreferences(accessibility: AccessibilityPreferences) {
   useEffect(() => {
-    localStorage.setItem('openbench.accessibility', JSON.stringify(accessibility));
+    writePreference('accessibility', JSON.stringify(accessibility));
     document.body.classList.toggle('high-contrast', accessibility.highContrast);
     document.body.classList.toggle('large-interface-text', accessibility.largeText);
     document.body.classList.toggle('reduce-motion', accessibility.reduceMotion);

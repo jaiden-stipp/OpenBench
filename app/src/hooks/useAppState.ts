@@ -129,7 +129,7 @@ function useDialogState() {
   const [showAbout, setShowAbout] = useState(false);
   const [showGuidance, setShowGuidance] = useState(false);
   const [showTutorial, setShowTutorial] = useState(
-    () => localStorage.getItem('openbench.tutorialComplete') !== 'true',
+    () => readPreference('tutorialComplete') !== 'true',
   );
   const [importSelection, setImportSelection] = useState<ProjectSelection | null>(null);
   const [newProjectParent, setNewProjectParent] = useState<string | null>(null);
@@ -179,7 +179,7 @@ function usePreferenceState() {
     try {
       return {
         ...defaults,
-        ...JSON.parse(localStorage.getItem('openbench.accessibility') || '{}'),
+        ...JSON.parse(readPreference('accessibility') || '{}'),
       };
     } catch {
       return defaults;

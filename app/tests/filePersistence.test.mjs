@@ -6,7 +6,7 @@ import test from 'node:test';
 import { persistDirtyFiles } from '../src/filePersistence.ts';
 
 test('backend operations see every dirty editor buffer after save all', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'openbench-save-all-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'rtldeck-save-all-'));
   const firstPath = path.join(root, 'first.sv');
   const secondPath = path.join(root, 'second.sv');
   const cleanPath = path.join(root, 'clean.sv');

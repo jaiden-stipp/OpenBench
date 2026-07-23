@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="app/src/assets/openbench-logo.png" width="180" alt="OpenBench logo">
+  <img src="app/src/assets/rtldeck-logo.png" width="180" alt="RTLDeck logo">
 </p>
 
-<h1 align="center">OpenBench</h1>
+<h1 align="center">RTLDeck</h1>
 
 <p align="center">
   Write Verilog. Run a real simulation. See the waveform and synthesized RTL.<br>
@@ -10,65 +10,65 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><strong>Download the latest release</strong></a>
+  <a href="https://github.com/jaiden-stipp/RTLDeck/releases/latest"><strong>Download the latest release</strong></a>
 </p>
 
-> OpenBench is a preview. Release workflows reject packages that fail platform trust checks or genuine bundled-backend tests.
+> RTLDeck is a preview. Release workflows reject packages that fail platform trust checks or genuine bundled-backend tests.
 
-## OpenBench in action
+## RTLDeck in action
 
 <p align="center">
-  <img src="docs/assets/openbench-waveform.png" width="1200" alt="OpenBench displaying a simulated Verilog project with its interactive waveform viewer and readable simulation output">
+  <img src="docs/assets/rtldeck-waveform.png" width="1200" alt="RTLDeck displaying a simulated Verilog project with its interactive waveform viewer and readable simulation output">
 </p>
 
 <p align="center">
-  <em>A genuine Icarus Verilog simulation displayed in OpenBench's interactive waveform viewer.</em>
+  <em>A genuine Icarus Verilog simulation displayed in RTLDeck's interactive waveform viewer.</em>
 </p>
 
 ## Download and install
 
-Download the package for your operating system from the repository's [Releases page](../../releases/latest).
+Download the package for your operating system from the repository's [Releases page](https://github.com/jaiden-stipp/RTLDeck/releases/latest).
 
 | Platform | Package | Status |
 | --- | --- | --- |
-| Windows 10/11 x64 | `OpenBench-*-Windows-x64.exe` | Validated with bundled Icarus, Verilator, and Yosys |
-| Ubuntu/Debian x86_64 | `OpenBench-*-Linux-x86_64.deb` | Native install and genuine simulation are checked by the release workflow |
-| Other Linux x86_64 | `OpenBench-*-Linux-x86_64.tar.gz` | Portable fallback without FUSE |
+| Windows 10/11 x64 | `RTLDeck-*-Windows-x64.exe` | Validated with bundled Icarus, Verilator, and Yosys |
+| Ubuntu/Debian x86_64 | `RTLDeck-*-Linux-amd64.deb` | Native install and genuine simulation are checked by the release workflow |
+| Other Linux x86_64 | `RTLDeck-*-Linux-x64.tar.gz` | Portable fallback without FUSE |
 | macOS | DMG/ZIP planned | Packaging is configured but not yet validated on macOS hardware |
 
 ### Windows
 
 1. Download the Windows installer.
 2. Run the installer and choose an installation directory.
-3. Launch **OpenBench** from the Start menu.
+3. Launch **RTLDeck** from the Start menu.
 
-Windows may show a reputation warning because preview installers are currently unsigned.
+Public Windows releases are Authenticode signed and scanned with Microsoft Defender. Locally built preview installers are intentionally unsigned and must not be redistributed.
 
 ### Linux
 
 On Ubuntu, Debian, Linux Mint, Pop!_OS, and related distributions, download the `.deb` and open it with the system software installer. You can also install it from a terminal:
 
 ```bash
-sudo apt install ./OpenBench-*-Linux-x86_64.deb
+sudo apt install ./RTLDeck-*-Linux-amd64.deb
 ```
 
-Other distributions can use the `.tar.gz` fallback by extracting it and launching `openbench`. Neither package requires FUSE.
+Other distributions can use the `.tar.gz` fallback by extracting it and launching `rtldeck`. Neither package requires FUSE.
 
 The distributed packages include their native HDL toolchain. You do not need to install ModelSim, Icarus Verilog, Verilator, Yosys, or configure `PATH` separately.
 
 ## Get your first waveform
 
-1. Launch OpenBench and follow or skip the optional first-run tutorial.
+1. Launch RTLDeck and follow or skip the optional first-run tutorial.
 2. Choose **Help → Open Example Project** to explore a working counter, or choose **File → New Project** to create a runnable starter.
 3. Press **Run Simulation**.
 4. Inspect signals, place a cursor, zoom, search, and change radix in the Waveform view.
 5. Press **RTL Analysis** to view the Yosys-elaborated design as a schematic.
 
-Every waveform and schematic shown by OpenBench comes from a genuine simulator or Yosys run against the project source. Demo data is not mocked.
+Every waveform and schematic shown by RTLDeck comes from a genuine simulator or Yosys run against the project source. Demo data is not mocked.
 
-## Why OpenBench?
+## Why RTLDeck?
 
-Learning Verilog should not begin with an afternoon of simulator installation, environment variables, and Tcl commands. OpenBench keeps the complete beginner workflow in one desktop application:
+Learning Verilog should not begin with an afternoon of simulator installation, environment variables, and Tcl commands. RTLDeck keeps the complete beginner workflow in one desktop application:
 
 - Create or import an HDL project with files and folders.
 - Edit Verilog and SystemVerilog with syntax highlighting, autosave, crash recovery, and inline lint diagnostics.
@@ -89,13 +89,13 @@ Learning Verilog should not begin with an afternoon of simulator installation, e
 
 ## Projects and supported HDL
 
-OpenBench projects store their selected HDL files and folders in `.openbench.json`. Project settings such as the top module, simulation top, include paths, simulator backend, and optional custom toolchain location are stored in `.rtlbench.json` for compatibility with projects created before the rename.
+RTLDeck projects store selected HDL files and folders in `.rtldeck.json` and project settings in `.rtldeck-settings.json`.
 
 ### Rename compatibility boundary
 
-New renderer code uses `window.openbench`, `openbench.*` preference keys, and OpenBench terminology. The preload exposes `window.rtlbench` only as a compatibility alias for extensions created before the rename. Preferences are migrated lazily by reading old `rtlbench.*` keys and writing only `openbench.*` keys. `.rtlbench.json` remains the settings filename so existing projects continue to open without a destructive migration; access to that filename is confined to the settings/project compatibility layer. Older `rtlbench:*` custom events are retained only where existing validation or extension integrations require them and should not be introduced in new code.
+New code uses `window.rtldeck`, `rtldeck.*` preference keys, `.rtldeck.json`, `.rtldeck-settings.json`, and `.rtldeck-runs`. The preload, preference reader, and project loader retain narrowly scoped aliases for projects and integrations created under the former OpenBench and RTLBench names. Legacy files are read in place; all new writes use RTLDeck names.
 
-The current focus is synthesizable Verilog/SystemVerilog and straightforward procedural testbenches. Language support is limited to the constructs supported by the selected Icarus/Verilator backend; OpenBench calls out relevant backend limitations at compile time. Full UVM and VHDL are not currently supported.
+The current focus is synthesizable Verilog/SystemVerilog and straightforward procedural testbenches. Language support is limited to the constructs supported by the selected Icarus/Verilator backend; RTLDeck calls out relevant backend limitations at compile time. Full UVM and VHDL are not currently supported.
 
 ## Local and offline by design
 
@@ -103,7 +103,7 @@ Source files, compilation, simulation, waveform parsing, synthesis, drafts, and 
 
 ## Troubleshooting
 
-- **Windows warns about the installer:** preview packages are unsigned. Verify that the file came from this repository's Releases page and compare its published SHA-256 checksum.
+- **Windows warns about the installer:** verify that the file came from this repository's Releases page, check its publisher, and compare its published SHA-256 checksum. Please report a warning on a signed public build.
 - **A language construct is rejected:** open Project Settings and check the selected backend. Icarus and Verilator support different SystemVerilog subsets; the raw backend message remains available in the console.
 - **The wrong module runs:** set both **Top module** and **Simulation top** in Project Settings.
 - **An include cannot be found:** add its project-relative directory under **Include paths**.
@@ -111,19 +111,19 @@ Source files, compilation, simulation, waveform parsing, synthesis, drafts, and 
 
 ## Feedback and bug reports
 
-OpenBench is being shaped around the real problems students encounter while learning Verilog. Feedback about confusing workflows, missing explanations, accessibility, and ideas that would make the application easier to learn is welcome.
+RTLDeck is being shaped around the real problems students encounter while learning Verilog. Feedback about confusing workflows, missing explanations, accessibility, and ideas that would make the application easier to learn is welcome.
 
 <p align="center">
-  <a href="mailto:jaidenstipp@gmail.com?subject=OpenBench%20Feedback"><strong>Send OpenBench feedback</strong></a>
+  <a href="mailto:jaidenstipp@gmail.com?subject=RTLDeck%20Feedback"><strong>Send RTLDeck feedback</strong></a>
   &nbsp;·&nbsp;
-  <a href="mailto:jaidenstipp@gmail.com?subject=OpenBench%20Bug%20Report"><strong>Report a bug</strong></a>
+  <a href="mailto:jaidenstipp@gmail.com?subject=RTLDeck%20Bug%20Report"><strong>Report a bug</strong></a>
 </p>
 
 You can also email [jaidenstipp@gmail.com](mailto:jaidenstipp@gmail.com) directly.
 
 For bug reports, please include:
 
-- your operating system and OpenBench version;
+- your operating system and RTLDeck version;
 - the selected simulator backend;
 - what you expected to happen and what happened instead;
 - the raw console output;
@@ -155,15 +155,15 @@ Requirements:
 - A platform-native [YosysHQ OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build) extraction for genuine backend tests and packages
 
 ```bash
-git clone <repository-url>
-cd OpenBench/app
+git clone https://github.com/jaiden-stipp/RTLDeck.git
+cd RTLDeck/app
 pnpm install --frozen-lockfile
 pnpm build
 pnpm test
 pnpm start
 ```
 
-The current test suite contains 57 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, multi-file dirty-buffer persistence, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, learning projects, and a 50,000-timestamp waveform benchmark.
+The current test suite contains 88 passing tests, including genuine Icarus compile/run/VCD, Verilator lint, Yosys JSON elaboration, multi-file dirty-buffer persistence, session and recovery persistence, generated testbenches, compiled waveform conditions, project-path security, learning projects, and a 50,000-timestamp waveform benchmark.
 
 See the [application development notes](app/README.md) and [architecture guide](docs/ARCHITECTURE.md) for implementation details. Maintainers can use the [packaging guide](docs/PACKAGING.md) and [release handoff](docs/RELEASING.md) for native-toolchain staging, signing secrets, installer creation, packaged-backend smoke testing, and the release checklist.
 
@@ -178,4 +178,4 @@ docs/             Architecture, packaging, and release documentation
 
 ## License
 
-OpenBench is free software licensed under the [GNU General Public License v3.0](LICENSE). You may use, study, modify, and redistribute it under the terms of that license. OpenBench is provided without warranty.
+RTLDeck is free software licensed under the [GNU General Public License v3.0](LICENSE). You may use, study, modify, and redistribute it under the terms of that license. RTLDeck is provided without warranty.
